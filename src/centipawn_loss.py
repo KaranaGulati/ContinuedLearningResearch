@@ -30,6 +30,7 @@ Usage:
 """
 
 import argparse
+import fcntl
 import io
 import json
 import multiprocessing as mp
@@ -147,6 +148,13 @@ def main():
     args = ap.parse_args()
 
     os.makedirs(args.out, exist_ok=True)
+    # One scorer per output directory: two copies appending to the same file
+    # waste half the CPU and can interleave partial lines.
+    lock = open(os.path.join(args.out, ".lock"), "w")
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        sys.exit(f"another centipawn_loss.py is already scoring into {args.out}")
     pairs = pd.read_parquet(args.pairs)
     exclude = set()
     for path in args.exclude:
@@ -183,15 +191,16 @@ def main():
     cfg = {k: getattr(args, k) for k in ("depth", "first_move", "last_move", "cap")}
     jobs = [(gid, pgns[gid], gid in window_ids, gid in final_ids, cfg) for gid in sorted(pgns)]
     t0 = time.time()
-    with mp.Pool(args.workers, initializer=_worker_init, initargs=(args.engine, args.hash_mb)) as pool, \
-            open(out_path, "a") as out:
+    fd = os.open(out_path, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o644)
+    with mp.Pool(args.workers, initializer=_worker_init, initargs=(args.engine, args.hash_mb)) as pool:
         for i, row in enumerate(pool.imap_unordered(score_game, jobs, chunksize=4), 1):
-            out.write(json.dumps(row) + "\n")
+            # One write per line, so a crash never leaves half a line behind.
+            os.write(fd, (json.dumps(row) + "\n").encode())
             if i % 200 == 0 or i == len(jobs):
-                out.flush()
                 rate = i / (time.time() - t0)
                 eta = (len(jobs) - i) / rate / 3600
                 print(f"{i:,}/{len(jobs):,} games, {rate:.2f} games/s, {eta:.1f} h left", flush=True)
+    os.close(fd)
 
 
 if __name__ == "__main__":

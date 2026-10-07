@@ -7,7 +7,7 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src"))
 
-from analyze import check_preregistration, primary_test  # noqa: E402
+from analyze import check_preregistration, n_per_group_needed, primary_test  # noqa: E402
 from centipawn_loss import select_sample  # noqa: E402
 
 WIN_TYPES = ["time", "checkmate", "resign"]
@@ -86,3 +86,9 @@ def test_preregistration_gate(tmp_path):
         check_preregistration(str(path))
     path.write_text("Prediction: lucky escape\nDate fixed: 2026-10-08\n")
     assert check_preregistration(str(path)) == ("lucky escape", "2026-10-08")
+
+
+def test_sample_size_formula():
+    # 2 * ((z_.99167 + z_.80) * 30 / 2)^2 = 2 * ((2.394 + 0.842) * 15)^2 ~ 4,713
+    assert n_per_group_needed(30.0) == pytest.approx(4713, abs=5)
+    assert n_per_group_needed(30.0, power=0.9) > n_per_group_needed(30.0)

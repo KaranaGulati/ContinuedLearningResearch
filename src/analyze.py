@@ -151,10 +151,20 @@ def primary_test(games, dv="acpl", extra=(), min_per_group=30):
         "raw_means": {t: float(g.y[g.prev_win_type == t].mean()) for t in WIN_TYPES},
         "raw_sds": {t: float(g.y[g.prev_win_type == t].std(ddof=1)) for t in WIN_TYPES},
         "pooled_sd": sd,
+        "resid_sd": float(np.sqrt(fit.mse_resid)),
         "covariates": {k: [float(fit.params[k]), float(fit.bse[k])] for k in fit.params.index
                        if not k.startswith(("C(win)", "C(time_control)", "Intercept"))},
     })
     return out
+
+
+def n_per_group_needed(resid_sd, delta=2.0, alpha=0.05, power=0.80, comparisons=3):
+    """Pairs per group for a two-group difference of delta cp, Bonferroni-level alpha.
+
+    Holm's first step uses alpha / comparisons, so this is the conservative case.
+    """
+    z = stats.norm.ppf(1 - alpha / comparisons / 2) + stats.norm.ppf(power)
+    return int(np.ceil(2 * (z * resid_sd / delta) ** 2))
 
 
 def mixed_check(games, dv="acpl"):
@@ -229,6 +239,11 @@ def main():
     results["no_rematch"] = primary_test(games[~games.rematch.astype(bool)])
     results["mixed_model"] = mixed_check(games)
 
+    if "resid_sd" in results["primary"]:
+        rsd = results["primary"]["resid_sd"]
+        results["sample_size"] = {"resid_sd": rsd, "delta_cp": 2.0,
+                                  "n_per_group_80": n_per_group_needed(rsd),
+                                  "n_per_group_90": n_per_group_needed(rsd, power=0.90)}
     with open(os.path.join(args.out, "results.json"), "w") as f:
         json.dump(results, f, indent=2)
 
@@ -256,6 +271,12 @@ def main():
     md.append(fmt("Lichess [%eval]", results["lichess_eval_subset"]))
     md.append("## Check 6: rematches removed\n")
     md.append(fmt("Next game against a different opponent", results["no_rematch"]))
+    if "sample_size" in results:
+        ss = results["sample_size"]
+        md.append("## Sample size for a 2 cp difference\n")
+        md.append(f"Residual SD of ACPL after the covariates: {ss['resid_sd']:.2f} cp. Pairs per group "
+                  f"needed at alpha .05 / 3 (Holm's first step), two-tailed: {ss['n_per_group_80']:,} "
+                  f"for 80% power, {ss['n_per_group_90']:,} for 90%.\n")
     md.append("## Check 7: mixed model with a random intercept per player\n")
     md.append(fmt("Mixed model", results["mixed_model"]))
     with open(os.path.join(args.out, "report.md"), "w") as f:
