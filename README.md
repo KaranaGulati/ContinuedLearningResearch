@@ -3,7 +3,8 @@
 A study of whether the manner in which a chess game ends affects the quality of the player's
 following game, using the Lichess open database and engine-scored move quality.
 
-Status: design finished, no code written yet. This file is the brief.
+Status: pipeline written and tested on synthetic data. No Lichess data has been pulled yet, and the
+preregistration is waiting on a dated directional prediction. This file is the brief.
 
 ## The question
 
@@ -54,7 +55,7 @@ H1: at least one pair of means differs.
 
 H1 is not "all three differ". The omnibus F test says something differs somewhere and cannot
 say what, which is what the post-hoc test is for. The likeliest outcome is a significant F with
-only one pair clearing the Tukey threshold.
+only one pair clearing the Holm-corrected post-hoc threshold.
 
 ### Directional prediction, to be fixed before looking at data
 
@@ -68,7 +69,7 @@ Three live theories, no obvious favourite:
 3. A win is a win. Players do not distinguish between the three, and the result is a null.
 
 Pick one and write it in `PREREGISTRATION.md` with a date before touching the data, keeping all
-tests two-tailed, and do not revise it afterwards.
+tests two-tailed, and do not revise it afterwards. `src/analyze.py` refuses to run until it is filled in.
 
 ## Data
 
@@ -110,8 +111,9 @@ These are not optional, and three of them attack this design specifically.
   up to 15 plies. We drop the first 15 moves anyway, so this mostly misses us, but say so in the
   methods.
 
-Simplest safe rule: sample from 2017 or later, which also guarantees clock data, since `%clk`
-comments only exist from April 2017.
+Sampling from April 2017 or later guarantees clock data, since `%clk` comments only exist from then,
+but it does not clear the 2020 and 2021 entries above. `src/fetch_month.py` refuses every month
+listed here and anything before 2017-04.
 
 ## Classifying the win
 
@@ -191,8 +193,10 @@ player are not independent observations, and a test run on raw moves will return
 1e-300 on effects of no consequence. After collapsing, n is the number of players, each player
 acts as their own control, and the remaining observations are genuinely independent.
 
-One-way repeated-measures ANOVA across the three groups, then Tukey's HSD to find which pairs
-differ. Report eta squared alongside F. With thousands of players a difference of half a
+One-way repeated-measures ANOVA across the three groups, with Mauchly's test and the
+Greenhouse-Geisser correction when sphericity fails. Then paired t-tests on the three pairs with
+Holm correction to find which pairs differ. Tukey's HSD assumes independent groups, so it does not
+fit a within-subjects design. Report eta squared alongside F. With thousands of players a difference of half a
 centipawn will be significant and irrelevant.
 
 ### The two checks that decide whether this is real
@@ -226,29 +230,58 @@ games carrying both clock and eval data at 2 to 5%, consistent with the 6% Liche
 6. Benchmark Stockfish on 20 games at depths 12, 15 and 18 before committing to a sample size.
 7. Score move quality on a random sample.
 8. Aggregate to one mean centipawn loss per player per condition.
-9. Repeated-measures ANOVA, Tukey, eta squared. Rerun within each time control.
+9. Repeated-measures ANOVA, Holm-corrected paired t-tests, eta squared. Rerun within each time control.
 10. Robustness: previous-position evaluation as a covariate, Elo band sensitivity, and the
     pre-analysed 6% subset as a comparison.
 
 ## Files
 
-- `centipawn_loss.py` scores a PGN and writes one row per player per game. Note it currently
-  evaluates twice per move; apply the single-evaluation fix described above.
-- `benchmark_stockfish.py` measures seconds per position on this machine and projects the
-  wall-clock time for several sample sizes. Run it first.
-- `PREREGISTRATION.md` does not exist yet. Write it before looking at any results.
+- `PREREGISTRATION.md` is the analysis plan. It is a draft until the prediction and date are
+  filled in and committed.
+- `src/fetch_month.py` streams one monthly dump without saving it, and writes a sequencing index
+  of every rated game plus the full PGN of eligible rapid games.
+- `src/build_pairs.py` links each eligible game to how the same player's previous game ended,
+  within a 30-minute session cutoff, and writes the cell counts. It never touches move quality.
+- `src/validate_checkmate.py` replays real games to confirm the "#" checkmate rule.
+- `src/benchmark_stockfish.py` measures seconds per position on this machine and projects the
+  wall-clock time for several sample sizes. Run it before choosing N.
+- `src/centipawn_loss.py` samples players, runs Stockfish on moves 15 to 30 with one evaluation per
+  position, and appends results to a file so a stopped run resumes.
+- `src/analyze.py` runs the primary test and the five checks and writes `results/report.md`.
+- `tests/` covers win classification, pairing, the eval arithmetic and the analysis on simulated
+  data with a planted effect.
 
-## Dependencies
+## Running it
 
-    pip install chess
-    # plus a Stockfish binary on PATH
+    python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+    sudo apt-get install stockfish          # Stockfish 16 on Debian/Ubuntu
+    .venv/bin/python -m pytest -q tests
+
+    # pilot: first 2 million games of a month, to see cell counts quickly
+    .venv/bin/python src/fetch_month.py 2025-03 --out data/pilot --max-games 2000000
+    .venv/bin/python src/build_pairs.py data/pilot --out data/pilot-pairs
+
+    # full run on two consecutive months
+    .venv/bin/python src/fetch_month.py 2025-03 --out data/2025-03
+    .venv/bin/python src/fetch_month.py 2025-04 --out data/2025-04
+    .venv/bin/python src/build_pairs.py data/2025-03 data/2025-04 --out data/pairs
+    .venv/bin/python src/validate_checkmate.py data/2025-03 --n 10000
+    .venv/bin/python src/benchmark_stockfish.py data/2025-03
+
+    # after PREREGISTRATION.md is dated and committed
+    .venv/bin/python src/centipawn_loss.py --pairs data/pairs/pairs.parquet \
+        --pgn data/2025-03 data/2025-04 --out data/scores \
+        --elo-min 1200 --elo-max 2000 --n-players N --depth 15
+    .venv/bin/python src/analyze.py --scores data/scores --out results
+
+The months above are examples. Check them against the Lichess known-issues list first.
 
 ## Reporting template
 
 > A one-way repeated-measures ANOVA showed a significant effect of manner of winning on
-> next-game mean centipawn loss, F(2, df) = _, p = _, eta squared = _. Tukey's HSD indicated
-> that games following a win on time were played significantly worse than games following
-> checkmate; no other pair differed.
+> next-game mean centipawn loss, F(2, df) = _, p = _, eta squared = _. Holm-corrected paired
+> t-tests indicated that games following a win on time were played significantly worse than
+> games following checkmate; no other pair differed.
 
 ## Related work worth citing
 
