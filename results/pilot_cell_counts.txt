@@ -1,0 +1,42 @@
+# Cell counts
+
+inputs: data/pilot
+games read: 2,000,000
+session cutoff: 30.0 min
+
+## All pairs
+pairs: time=19,951, checkmate=56,488, resign=117,943
+players with any pair: 72,882
+players with all three conditions: 6,491
+
+## Current game reaches ply 30
+pairs: time=17,334, checkmate=47,899, resign=103,421
+players with any pair: 68,768
+players with all three conditions: 5,171
+
+## By time control (current game reaches ply 30), top 10
+   600+0: time=13,831, checkmate=36,971, resign=81,558, complete players=4,315
+   600+5: time=2,047, checkmate=5,849, resign=13,073, complete players=467
+  900+10: time=448, checkmate=1,508, resign=2,933, complete players=58
+   900+0: time=216, checkmate=655, resign=1,263, complete players=54
+   480+0: time=202, checkmate=490, resign=879, complete players=64
+   600+2: time=40, checkmate=534, resign=372, complete players=10
+   300+5: time=90, checkmate=247, resign=509, complete players=15
+   600+3: time=50, checkmate=234, resign=326, complete players=9
+   480+2: time=55, checkmate=171, resign=312, complete players=11
+   420+3: time=33, checkmate=158, resign=229, complete players=9
+
+## By Elo band of the player (current game reaches ply 30)
+    [400, 600): time=92, checkmate=194, resign=247, complete players=4
+    [600, 800): time=528, checkmate=1,429, resign=1,598, complete players=87
+   [800, 1000): time=1,248, checkmate=4,408, resign=5,250, complete players=306
+  [1000, 1200): time=2,097, checkmate=7,062, resign=9,716, complete players=544
+  [1200, 1400): time=2,678, checkmate=8,884, resign=15,238, complete players=766
+  [1400, 1600): time=3,222, checkmate=9,461, resign=20,852, complete players=1,013
+  [1600, 1800): time=3,439, checkmate=8,587, resign=23,533, complete players=1,033
+  [1800, 2000): time=2,639, checkmate=5,571, resign=17,865, complete players=816
+  [2000, 2200): time=1,114, checkmate=1,858, resign=7,147, complete players=288
+  [2200, 2400): time=233, checkmate=376, resign=1,657, complete players=65
+  [2400, 2600): time=43, checkmate=65, resign=298, complete players=12
+  [2600, 2800): time=1, checkmate=4, resign=19, complete players=0
+  [2800, 3000): time=0, checkmate=0, resign=1, complete players=0

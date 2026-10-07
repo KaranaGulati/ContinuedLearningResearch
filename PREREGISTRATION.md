@@ -11,11 +11,20 @@ The three options are in the README. Write one of them in a sentence that names 
 
 ## What has been looked at before fixing this
 
-Only sample sizes. `build_pairs.py` reports how many pairs and complete players each condition has, by time control and Elo band. It does not compute any move-quality number. No engine has been run on any study game before this file is fixed, except the 20-game timing benchmark, whose ACPL values are not printed.
+A pilot on the first 2,000,000 games of the 2026-09 dump (about 17 hours of play) was run on 2026-10-07. From it the following were seen:
+
+- Sample sizes: 5,171 players with all three conditions once the current game reaches ply 30, and 17,334 / 47,899 / 103,421 pairs after a win on time / checkmate / resignation. 10+0 holds about 80% of rapid pairs.
+- The "#" checkmate rule agreed with a full replay on all 10,000 decisive Normal games checked (3,452 mates, 6,548 resignations).
+- Session gaps: median about 1 minute, 90th percentile about 10 minutes.
+- Rematch share by condition: 2.9% after a win on time, 9.4% after checkmate, 7.3% after resignation.
+- 19% of eligible rapid games carry Lichess [%eval] comments, not the 6% stated in the README.
+- Next-game result by condition was also printed: the player won 48.8% of next games after a win on time, 50.9% after checkmate and 49.9% after resignation. This is the outcome Gee et al. studied, not this study's dependent variable, but it was seen before the prediction was fixed, so it is recorded here.
+
+No move-quality number has been computed on any study game. No engine has been run on a study game except the 20-game timing benchmark, whose ACPL values are not printed.
 
 ## Data
 
-Lichess monthly dumps of rated standard games, two consecutive months: [month 1] and [month 2]. Before fetching, check both against https://database.lichess.org/#known-issues. `fetch_month.py` refuses 2016-12, 2020-06 to 2020-08, 2021-02, 2021-03 and anything before 2017-04.
+Lichess monthly dumps of rated standard games, two consecutive months: 2026-08 (91,912,325 games) and 2026-09 (89,616,462 games). Both were checked against https://database.lichess.org/#known-issues on 2026-10-07; the only entries after March 2021 concern Chess960 and Antichess, which are not in the standard dump. `fetch_month.py` refuses 2016-12, 2020-06 to 2020-08, 2021-02, 2021-03 and anything before 2017-04.
 
 ## Eligible games
 
@@ -77,10 +86,11 @@ The prediction is supported if the omnibus test is significant and the post-hoc 
 ## Checks that decide whether an effect is real
 
 1. Time control. The primary analysis is rerun separately within each rapid time control that has at least 100 complete players. An effect that appears only in the pooled data is reported as a composition confound.
-2. Previous position. A mixed model on game-level ACPL with a random intercept per player, condition (checkmate as the reference), the previous game's final engine evaluation from the player's side, the rating gap, colour, and time control. If the condition effect disappears once the final evaluation is in the model, the mechanism is position quality, and the report says so.
+2. Previous position. A mixed model on game-level ACPL with a random intercept per player, condition (checkmate as the reference), the previous game's final engine evaluation from the player's side, the rating gap, whether the next game is a rematch, colour, and time control. If the condition effect disappears once the final evaluation is in the model, the mechanism is position quality, and the report says so.
 3. The primary test restricted to previous wins where the final evaluation from the player's side is at least -100 cp, meaning the player was not losing on the board.
 4. Elo band sensitivity: the primary test within [1200, 1600) and [1600, 2000).
 5. Pre-analysed games: the primary test using Lichess's own [%eval] comments, for games that have them. This subset is selected by users requesting analysis, so it is a comparison and never the main result.
+6. Rematches: the primary test with rematches removed (next game against the same opponent as the winning game). The pilot showed rematches are three times as common after checkmate as after a win on time, so an effect that disappears here is a rematch effect.
 
 ## Amendments
 

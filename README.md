@@ -247,7 +247,7 @@ games carrying both clock and eval data at 2 to 5%, consistent with the 6% Liche
   wall-clock time for several sample sizes. Run it before choosing N.
 - `src/centipawn_loss.py` samples players, runs Stockfish on moves 15 to 30 with one evaluation per
   position, and appends results to a file so a stopped run resumes.
-- `src/analyze.py` runs the primary test and the five checks and writes `results/report.md`.
+- `src/analyze.py` runs the primary test and the six checks and writes `results/report.md`.
 - `tests/` covers win classification, pairing, the eval arithmetic and the analysis on simulated
   data with a planted effect.
 

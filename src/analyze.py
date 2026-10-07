@@ -19,6 +19,7 @@ Checks:
   4. Elo band sensitivity
   5. the same test using Lichess's own [%eval] comments on the
      pre-analysed subset
+  6. the primary test without rematches (next game against the same opponent)
 
 Usage:
   python src/analyze.py --scores data/scores --out results
@@ -134,10 +135,11 @@ def mixed_model(games):
     if g.player.nunique() < 10:
         return {"note": "too few players"}
     g["prev_final_eval_pawns"] = g.prev_final_eval / 100
+    g["rematch"] = g["rematch"].astype(int)
     formula = ("acpl ~ C(prev_win_type, Treatment('checkmate')) + prev_final_eval_pawns"
-               " + elo_gap + C(color) + C(time_control)")
+               " + elo_gap + rematch + C(color) + C(time_control)")
     fit = smf.mixedlm(formula, g, groups=g["player"]).fit(reml=True)
-    keep = [k for k in fit.params.index if "prev_" in k or k in ("elo_gap", "Intercept")]
+    keep = [k for k in fit.params.index if "prev_" in k or k in ("elo_gap", "rematch", "Intercept")]
     return {
         "n_games": int(len(g)), "n_players": int(g.player.nunique()), "formula": formula,
         "coef": {k: float(fit.params[k]) for k in keep},
@@ -197,6 +199,7 @@ def main():
         lo, hi = map(int, band.split("-"))
         results["elo_bands"][band] = primary_test(games[(games.elo >= lo) & (games.elo < hi)])
     results["lichess_eval_subset"] = primary_test(games, dv="lichess_acpl")
+    results["no_rematch"] = primary_test(games[~games.rematch.astype(bool)])
 
     with open(os.path.join(args.out, "results.json"), "w") as f:
         json.dump(results, f, indent=2)
@@ -223,6 +226,8 @@ def main():
     md += [fmt_primary(b, r) for b, r in results["elo_bands"].items()]
     md.append("## Check 5: Lichess pre-analysed subset\n")
     md.append(fmt_primary("Lichess [%eval]", results["lichess_eval_subset"]))
+    md.append("## Check 6: rematches removed\n")
+    md.append(fmt_primary("Next game against a different opponent", results["no_rematch"]))
     with open(os.path.join(args.out, "report.md"), "w") as f:
         f.write("\n".join(md))
     print("\n".join(md))

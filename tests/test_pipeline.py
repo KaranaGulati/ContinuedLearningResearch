@@ -109,6 +109,8 @@ def month_dir(tmp_path):
         pgn("b2", "ivy", "bob", "0-1", "Abandoned", SHORT, m(32)),
         # bob's b2 was abandoned, so it cannot be a previous win
         pgn("b3", "bob", "ivy", "0-1", "Normal", SHORT, m(40)),
+        # carol won a2 by resignation, then draws a rematch against alice -> pair (resign), draw
+        pgn("c1", "carol", "alice", "1/2-1/2", "Normal", SHORT, m(14)),
     ]
     raw = "".join(games).encode()
     src = tmp_path / "month.pgn.zst"
@@ -122,7 +124,7 @@ def month_dir(tmp_path):
 def test_fetch_month_outputs(month_dir):
     stream = zstandard.ZstdDecompressor().stream_reader(open(month_dir / "games.tsv.zst", "rb"))
     games = pd.read_csv(stream, sep="\t")
-    assert len(games) == 10
+    assert len(games) == 11
     assert set(games.loc[games.eligible == 0, "game_id"]) == {"a4", "a7"}
     by_id = games.set_index("game_id")
     assert by_id.loc["a1", "win_type"] == "checkmate"
@@ -132,7 +134,7 @@ def test_fetch_month_outputs(month_dir):
 
     pgn_stream = zstandard.ZstdDecompressor().stream_reader(open(month_dir / "rapid.pgn.zst", "rb"))
     ids = [h["Site"].rsplit("/", 1)[-1] for h, _, _ in iter_games(pgn_stream)]
-    assert len(ids) == 8 and "a4" not in ids and "a7" not in ids
+    assert len(ids) == 9 and "a4" not in ids and "a7" not in ids
 
 
 def test_build_pairs(month_dir, tmp_path):
@@ -143,11 +145,14 @@ def test_build_pairs(month_dir, tmp_path):
     got = {(r.player, r.prev_game_id, r.game_id, r.prev_win_type) for r in pairs.itertuples()}
     assert got == {
         ("alice", "a1", "a2", "checkmate"),
-        # carol won a2 by resignation but never plays again; hank and ivy likewise
         ("bob", "b1", "b2", "time"),
+        ("carol", "a2", "c1", "resign"),
     }
     row = pairs.set_index("game_id").loc["a2"]
     assert row.color == "black" and row.elo == 1550 and row.opp_elo == 1500
     assert row.result_for_player == "loss"
     # a1 lasted 100s by the clocks, a2 started 10 minutes after a1 started
     assert row.gap_s == 500
+    assert not row.rematch  # alice played bob, then carol
+    carol = pairs.set_index("game_id").loc["c1"]
+    assert carol.rematch and carol.result_for_player == "draw"

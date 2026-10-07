@@ -67,6 +67,9 @@ def build_pairs(table, cutoff_s, min_gap_s):
     player = pc.dictionary_encode(names).combine_chunks()
     player_code = player.indices.to_numpy()
     player_names = player.dictionary
+    # Row i < n is White in game i, row n + i is Black in game i, so swapping
+    # the halves gives each row's opponent.
+    opponent_code = np.concatenate([player_code[n:], player_code[:n]])
 
     start = table["start_ts"].to_numpy().astype(np.int64)
     duration = np.nan_to_num(table["duration_s"].to_numpy(zero_copy_only=False).astype(float))
@@ -78,6 +81,7 @@ def build_pairs(table, cutoff_s, min_gap_s):
 
     order = np.lexsort((game_idx, start2, player_code))
     p, g, c = player_code[order], game_idx[order], color[order]
+    o = opponent_code[order]
     s, e = start2[order], end2[order]
 
     same_player = p[1:] == p[:-1]
@@ -108,8 +112,9 @@ def build_pairs(table, cutoff_s, min_gap_s):
         "prev_win_type": win_type[pg],
         "prev_color": np.where(prev_c[k] == 0, "white", "black"),
         "gap_s": gap[k],
+        "rematch": o[1:][k] == o[:-1][k],
         "start_ts": cur_start[k],
-        "time_control": [f"{b}+{i}" for b, i in zip(col("tc_base")[cg], col("tc_inc")[cg])],
+        "time_control": [f"{int(b)}+{int(i)}" for b, i in zip(col("tc_base")[cg], col("tc_inc")[cg])],
         "elo": np.where(cc == 0, white_elo[cg], black_elo[cg]),
         "opp_elo": np.where(cc == 0, black_elo[cg], white_elo[cg]),
         "result_for_player": _result_for(col("winner")[cg], cc),
@@ -119,6 +124,8 @@ def build_pairs(table, cutoff_s, min_gap_s):
 
 
 def _result_for(winner, color):
+    # Draws have an empty winner, which reads back as null.
+    winner = np.array(["" if w is None else w for w in winner], dtype=object)
     side = np.where(color == 0, "white", "black")
     return np.where(winner == "", "draw", np.where(winner == side, "win", "loss"))
 
