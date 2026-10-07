@@ -19,7 +19,9 @@ Usage:
 """
 
 import argparse
+import json
 import os
+import sys
 
 import numpy as np
 import pandas as pd
@@ -38,6 +40,19 @@ COLUMN_TYPES = {
     "duration_s": pa.float64(), "white_first_clk": pa.float64(),
     "black_first_clk": pa.float64(), "has_clk": pa.int8(), "has_eval": pa.int8(),
 }
+
+
+def check_complete(dirs, allow_partial):
+    """Refuse months whose download did not finish, unless told otherwise."""
+    for d in dirs:
+        path = os.path.join(d, "meta.json")
+        meta = json.load(open(path)) if os.path.exists(path) else None
+        if meta and meta.get("complete"):
+            continue
+        reason = "no meta.json" if meta is None else (meta.get("error") or "stopped at --max-games")
+        if not allow_partial:
+            sys.exit(f"{d} is not a complete month ({reason}). Pass --allow-partial for pilot runs.")
+        print(f"warning: {d} is partial ({reason})", file=sys.stderr)
 
 
 def read_games(dirs):
@@ -176,10 +191,13 @@ def main():
                     help="max minutes between previous game's end and this game's start")
     ap.add_argument("--min-gap-s", type=float, default=-60.0,
                     help="tolerance for clock-based end times running slightly late")
+    ap.add_argument("--allow-partial", action="store_true",
+                    help="accept inputs whose download did not finish (pilot runs only)")
     ap.add_argument("--min-ply", type=int, default=30,
                     help="plies the current game must reach for moves 15-30 to exist")
     args = ap.parse_args()
 
+    check_complete(args.dirs, args.allow_partial)
     os.makedirs(args.out, exist_ok=True)
     table = read_games(args.dirs)
     pairs = build_pairs(table, args.cutoff_min * 60, args.min_gap_s)

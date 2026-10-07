@@ -20,8 +20,8 @@ Usage:
 import argparse
 import csv
 import io
+import json
 import os
-import subprocess
 import sys
 import time
 
@@ -30,6 +30,7 @@ import zstandard
 sys.path.insert(0, os.path.dirname(__file__))
 from features import game_features, speed_class, start_timestamp  # noqa: E402
 from pgn_stream import iter_games  # noqa: E402
+from resumable import ResumableReader  # noqa: E402
 
 DUMP_URL = "https://database.lichess.org/standard/lichess_db_standard_rated_{month}.pgn.zst"
 
@@ -47,20 +48,19 @@ COLUMNS = INDEX_COLUMNS + RAPID_COLUMNS
 
 
 def open_source(source):
-    """Binary stream of decompressed PGN from a month, a URL or a local file."""
+    """(decompressed PGN stream, raw reader) for a month, a URL or a local file."""
     if len(source) == 7 and source[4] == "-":
         if source in BAD_MONTHS or source < "2017-04":
             sys.exit(f"{source} overlaps a Lichess known issue or predates clock data; pick another month")
         source = DUMP_URL.format(month=source)
     if source.startswith("http"):
         # curl already knows the proxy and CA bundle, so let it do the transfer.
-        proc = subprocess.Popen(["curl", "-sSfL", "--retry", "4", source], stdout=subprocess.PIPE)
-        raw = proc.stdout
+        raw = ResumableReader(source)
     else:
         raw = open(source, "rb")
     if source.endswith(".zst"):
-        return zstandard.ZstdDecompressor().stream_reader(raw, read_size=1 << 20)
-    return raw
+        return zstandard.ZstdDecompressor().stream_reader(raw, read_size=1 << 20), raw
+    return raw, raw
 
 
 def is_eligible(headers, speed):
@@ -95,7 +95,39 @@ def main():
 
     n_total = n_eligible = 0
     t0 = time.time()
-    for headers, movetext, raw_text in iter_games(open_source(args.source)):
+    stream, raw = open_source(args.source)
+    complete, error = False, None
+    try:
+        for n_total, eligible_added in _process(stream, writer, pgn_out, args.max_games):
+            n_eligible += eligible_added
+            if n_total % 1_000_000 == 0:
+                rate = n_total / (time.time() - t0)
+                print(f"{n_total:,} games, {n_eligible:,} eligible rapid, {rate:,.0f} games/s", flush=True)
+        complete = not args.max_games or n_total < args.max_games
+    except IOError as exc:
+        error = str(exc)
+
+    tsv_out.close()
+    pgn_out.close()
+    meta = {
+        "source": args.source, "games": n_total, "eligible_rapid": n_eligible,
+        "complete": complete, "max_games": args.max_games, "error": error,
+        "bytes_read": getattr(raw, "offset", None), "bytes_total": getattr(raw, "total", None),
+        "resumes": getattr(raw, "resumes", 0), "seconds": round(time.time() - t0),
+    }
+    with open(os.path.join(args.out, "meta.json"), "w") as f:
+        json.dump(meta, f, indent=2)
+    status = "complete" if complete else ("stopped at --max-games" if not error else "INCOMPLETE")
+    print(f"{status}: {n_total:,} games, {n_eligible:,} eligible rapid, {meta['seconds']:,}s, "
+          f"{meta['resumes']} resumes")
+    if error:
+        sys.exit(f"error: {error}")
+
+
+def _process(stream, writer, pgn_out, max_games):
+    """Write one row per game; yield (games so far, 1 if this game was eligible)."""
+    n_total = 0
+    for headers, movetext, raw_text in iter_games(stream):
         n_total += 1
         speed, _, _ = speed_class(headers.get("TimeControl"))
         eligible = is_eligible(headers, speed)
@@ -108,7 +140,6 @@ def main():
             int(eligible),
         ]
         if eligible:
-            n_eligible += 1
             feats = game_features(headers, movetext)
             row += [feats[c] for c in RAPID_COLUMNS]
             pgn_out.write(raw_text)
@@ -116,16 +147,9 @@ def main():
         else:
             row += [""] * len(RAPID_COLUMNS)
         writer.writerow(["" if v is None else v for v in row])
-
-        if n_total % 1_000_000 == 0:
-            rate = n_total / (time.time() - t0)
-            print(f"{n_total:,} games, {n_eligible:,} eligible rapid, {rate:,.0f} games/s", flush=True)
-        if args.max_games and n_total >= args.max_games:
-            break
-
-    tsv_out.close()
-    pgn_out.close()
-    print(f"done: {n_total:,} games, {n_eligible:,} eligible rapid, {time.time() - t0:,.0f}s")
+        yield n_total, int(eligible)
+        if max_games and n_total >= max_games:
+            return
 
 
 if __name__ == "__main__":
