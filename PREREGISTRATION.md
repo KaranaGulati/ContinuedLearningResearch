@@ -24,7 +24,9 @@ No move-quality number has been computed on any study game. No engine has been r
 
 ## Data
 
-Lichess monthly dumps of rated standard games, two consecutive months: 2026-08 (91,912,325 games) and 2026-09 (89,616,462 games). Both were checked against https://database.lichess.org/#known-issues on 2026-10-07; the only entries after March 2021 concern Chess960 and Antichess, which are not in the standard dump. `fetch_month.py` refuses 2016-12, 2020-06 to 2020-08, 2021-02, 2021-03 and anything before 2017-04.
+Lichess monthly dumps of rated standard games for 2026-08 and 2026-09. Both were checked against https://database.lichess.org/#known-issues on 2026-10-07; the only entries after March 2021 concern Chess960 and Antichess, which are not in the standard dump. `fetch_month.py` refuses 2016-12, 2020-06 to 2020-08, 2021-02, 2021-03 and anything before 2017-04.
+
+The study uses the first part of each month, because a worker restart cut the downloads: 2026-08-01 00:00 to 2026-08-05 04:04 UTC (12,258,314 games) and 2026-09-01 00:00 to 2026-09-05 00:55 UTC (12,022,960 games). Within those windows every rated game is present, so a player's sequence of games is complete. The early-month windows are a limitation: they cover about nine days, and the first days of a month are not known to differ from the rest.
 
 ## Eligible games
 
@@ -52,15 +54,25 @@ A blitz or bullet game in between breaks the link. Casual and variant games are 
 
 `test_hash_rule_matches_board_replay` in the tests checks the "#" rule against python-chess's `board.is_checkmate()`. Before scoring, the rule is also checked on 10,000 real decisive Normal games by replaying them, using `src/validate_checkmate.py`.
 
-## Players
+## Design
 
-- The player's rating in the current game is in [1200, 2000).
-- The current game reaches at least ply 30, so both players have at least one move inside the scored window.
-- The player has at least one qualifying game in each of the three conditions. Players missing any condition are excluded from the test.
+The unit is a pair: a rapid win, then the same player's next rapid game. The three groups are pairs whose first game was a win on time, by checkmate, or by the opponent's resignation. A player can appear in more than one group, but at most once in each.
 
-## Sampling for the engine
+A pair is kept if the player's rating in the next game is in [1200, 2000) and the next game reaches at least ply 30, so both players have at least one move inside the scored window.
 
-From the complete players, [N players] are drawn at random (seed 20261007). For each sampled player, at most 5 games per condition are scored, drawn at random with the same seed. N is set after the Stockfish benchmark and before any scoring, and is written here.
+## Sampling
+
+`centipawn_loss.py`, seed 20261007:
+
+1. One pair per player per group, chosen at random.
+2. Draw N win-on-time pairs at random.
+3. Draw the checkmate and resignation groups stratum by stratum so their mix of Elo (100-point bins) and time control matches the win-on-time group exactly. Winners on time differ in rating and time control from other winners, and matching removes that difference by construction instead of leaving it all to the model.
+
+## Exploratory pilot, then confirmatory test
+
+- Pilot: 200 pairs per group, drawn as above. It is exploratory. Its results are used to choose the prediction below and to estimate the noise for the sample size. It is never reported as the test.
+- Confirmatory: N pairs per group, drawn the same way but excluding every player in the pilot (`--exclude data/pilot-scores/sample.parquet`). Only this sample is analysed under the decision rule.
+- N: [N] pairs per group, set from the pilot's standard deviation of ACPL so that a 2 cp difference has at least 80% power after Holm correction. Written here before the confirmatory draw.
 
 ## Dependent variable
 
@@ -73,11 +85,12 @@ Mean centipawn loss of the player over their own moves 15 to 30 in the current g
 
 ## Primary analysis
 
-1. Collapse to one number per player per condition: the mean of that player's game-level ACPL in that condition.
-2. One-way repeated-measures ANOVA, three levels, alpha 0.05, two-tailed. Mauchly's test is reported. If sphericity is rejected, the Greenhouse-Geisser corrected p is the one used for the decision.
-3. Effect sizes: eta squared and partial eta squared.
-4. Post hoc: paired t-tests on all three pairs with Holm correction, with Cohen's dz.
-5. Smallest effect of interest: [X] cp difference between two conditions. A significant pair with an absolute difference below this is reported as statistically detectable and practically negligible.
+1. Outcome: the next game's ACPL for the player.
+2. Model: OLS with win type (checkmate as the reference), the player's Elo, the rating gap to the opponent, colour and time control. Standard errors are clustered by player, because a player can appear in more than one group.
+3. Omnibus test: Wald test that both win-type coefficients are zero, chi-squared with 2 degrees of freedom, alpha 0.05, two-tailed.
+4. Pairwise: time minus checkmate, resignation minus checkmate and time minus resignation, from the same model, with Holm correction and 95% confidence intervals.
+5. Effect sizes: the adjusted differences in centipawns, and divided by the pooled SD of ACPL.
+6. Smallest effect of interest: 2 cp. A significant difference smaller than this is reported as detectable and practically negligible.
 
 ## Decision rule
 
@@ -85,12 +98,13 @@ The prediction is supported if the omnibus test is significant and the post-hoc 
 
 ## Checks that decide whether an effect is real
 
-1. Time control. The primary analysis is rerun separately within each rapid time control that has at least 100 complete players. An effect that appears only in the pooled data is reported as a composition confound.
-2. Previous position. A mixed model on game-level ACPL with a random intercept per player, condition (checkmate as the reference), the previous game's final engine evaluation from the player's side, the rating gap, whether the next game is a rematch, colour, and time control. If the condition effect disappears once the final evaluation is in the model, the mechanism is position quality, and the report says so.
+1. Time control. The primary analysis is rerun separately within each rapid time control that has at least 100 pairs in every group. An effect that appears only in the pooled data is reported as a composition confound.
+2. Previous position. The primary model plus the previous game's final engine evaluation from the player's side and whether the next game is a rematch. If the win-type effect disappears once the final evaluation is in the model, the mechanism is position quality, and the report says so.
 3. The primary test restricted to previous wins where the final evaluation from the player's side is at least -100 cp, meaning the player was not losing on the board.
 4. Elo band sensitivity: the primary test within [1200, 1600) and [1600, 2000).
 5. Pre-analysed games: the primary test using Lichess's own [%eval] comments, for games that have them. This subset is selected by users requesting analysis, so it is a comparison and never the main result.
 6. Rematches: the primary test with rematches removed (next game against the same opponent as the winning game). The pilot showed rematches are three times as common after checkmate as after a win on time, so an effect that disappears here is a rematch effect.
+7. Model form: a mixed model with a random intercept per player in place of clustered standard errors.
 
 ## Amendments
 

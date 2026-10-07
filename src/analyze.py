@@ -32,6 +32,7 @@ Checks:
 
 Usage:
   python src/analyze.py --scores data/scores --out results
+  python src/analyze.py --scores data/pilot-scores --out results/pilot --exploratory
 """
 
 import argparse
@@ -199,9 +200,14 @@ def main():
                     help="check 1: pairs per group a time control needs to be tested on its own")
     ap.add_argument("--elo-bands", nargs="+", default=["1200-1600", "1600-2000"])
     ap.add_argument("--prereg", default=os.path.join(ROOT, "PREREGISTRATION.md"))
+    ap.add_argument("--exploratory", action="store_true",
+                    help="pilot only: skip the preregistration gate and label the report exploratory")
     args = ap.parse_args()
 
-    prediction, date = check_preregistration(args.prereg)
+    if args.exploratory:
+        prediction, date = "none (exploratory pilot, not a test of any hypothesis)", "n/a"
+    else:
+        prediction, date = check_preregistration(args.prereg)
     games = load(args.scores, args.cap, args.min_moves)
     os.makedirs(args.out, exist_ok=True)
 
@@ -226,7 +232,11 @@ def main():
     with open(os.path.join(args.out, "results.json"), "w") as f:
         json.dump(results, f, indent=2)
 
-    md = [f"# Results\n\nPreregistered prediction ({date}): {prediction}\n",
+    header = ("# Exploratory pilot\n\nThis sample is used to form the prediction and size the "
+              "confirmatory test. None of its p-values are evidence for or against any hypothesis.\n"
+              if args.exploratory else
+              f"# Results\n\nPreregistered prediction ({date}): {prediction}\n")
+    md = [header,
           f"Pairs with a scored ACPL: {results['n_scored']:,}\n",
           "## Primary test\n", fmt("All time controls", results["primary"]),
           f"Model: `{results['primary'].get('formula', '')}`, OLS with standard errors clustered by player.\n",
