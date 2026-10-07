@@ -12,21 +12,25 @@ Karana chose a matched pairs design on 2026-10-07. The unit is a pair: a rapid w
 
 ## Where things stand
 
-- Data on disk (not committed, lost when the container goes): the first part of 2026-08 (1 to 5 August, 12.3M games) and of 2026-09 (1 to 5 September, 12.0M games) in `data/2026-08` and `data/2026-09`. A worker restart cut the full downloads; Karana decided this is enough data. Pairs from both are in `data/partial-pairs/pairs.parquet` (rebuild with `build_pairs.py data/2026-08 data/2026-09 --out data/partial-pairs --allow-partial`).
-- In the Elo band 1200 to 2000 there are 146,751 win-on-time pairs, 410,087 checkmate pairs and 950,990 resignation pairs.
-- The "#" checkmate rule matched a full replay on 10,000 of 10,000 games.
-- Exploratory pilot: 200 pairs per group, being scored into `data/pilot-scores` (about 1,200 Stockfish games at depth 15). Analyse it with `analyze.py --scores data/pilot-scores --out results/pilot --exploratory`.
+- Data on disk (not committed, lost when the container goes): 1 to 5 August 2026 (12.3M games) and 1 to 5 September 2026 (12.0M games) in `data/2026-08` and `data/2026-09`, pairs in `data/partial-pairs/pairs.parquet` (rebuild with `build_pairs.py data/2026-08 data/2026-09 --out data/partial-pairs --allow-partial`).
+- Exploratory pilot done (200 pairs per group): no difference between win types, residual SD 46.7 cp. Report in `results/pilot/report.md`.
+- `PREREGISTRATION.md` is fixed and dated 2026-10-07 (commit 6ef4d78). At Karana's request Claude chose the prediction: a win is a win, tested by equivalence within plus or minus 3 cp, 6,500 pairs per group, pilot players excluded.
+- Confirmatory scoring started 2026-10-07 about 15:23 UTC into `data/confirm-scores` (about 19,500 pairs, 4.8 hours). The Bash background mode stops a job after 2 hours, so it has to be relaunched with the same command; it resumes from `scores.jsonl` and reuses the saved `sample.parquet`.
 
 ## Next steps
 
-1. Finish the pilot, analyse it in exploratory mode, and commit `results/pilot/`.
-2. Karana writes the prediction from the pilot and dates it in `PREREGISTRATION.md`. Use the pilot's pooled SD of ACPL to set N per group for 80% power on a 2 cp difference after Holm correction, and write N in the preregistration.
-3. Update the "What has been looked at" section of `PREREGISTRATION.md` to list the pilot results.
-4. Commit the preregistration, then score the confirmatory sample with `--exclude data/pilot-scores/sample.parquet`, then run `analyze.py` without `--exploratory`.
+1. Keep the confirmatory run going until `games to score: 0`. Relaunch command:
+   ```
+   .venv/bin/python -u src/centipawn_loss.py --pairs data/partial-pairs/pairs.parquet --pgn data/2026-08 data/2026-09 \
+       --out data/confirm-scores --elo-min 1200 --elo-max 2000 --n-per-group 6500 --depth 15 \
+       --exclude data/pilot-scores/sample.parquet >> data/confirm-scores.log 2>&1
+   ```
+2. Run `analyze.py --scores data/confirm-scores --out results/confirmatory` (no `--exploratory`). It prints the preregistered decision.
+3. Commit `results/confirmatory/` and write up the result for Karana's teacher.
 
 ## Settings already agreed
 
-Elo band 1200 to 2000, 30-minute session cutoff, Stockfish 16 at depth 15 with one thread per engine, evals capped at plus or minus 1000 cp, a game counts if at least 5 of the player's moves are scored, smallest effect of interest 2 cp.
+Elo band 1200 to 2000, 30-minute session cutoff, Stockfish 16 at depth 15 with one thread per engine, evals capped at plus or minus 1000 cp, a game counts if at least 5 of the player's moves are scored, smallest effect of interest 3 cp.
 
 ## Environment setup (the container starts clean)
 
