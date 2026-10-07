@@ -7,7 +7,7 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src"))
 
-from analyze import check_preregistration, n_per_group_needed, primary_test  # noqa: E402
+from analyze import check_preregistration, decide, equivalence, n_per_group_needed, primary_test  # noqa: E402
 from centipawn_loss import select_sample  # noqa: E402
 
 WIN_TYPES = ["time", "checkmate", "resign"]
@@ -92,3 +92,12 @@ def test_sample_size_formula():
     # 2 * ((z_.99167 + z_.80) * 30 / 2)^2 = 2 * ((2.394 + 0.842) * 15)^2 ~ 4,713
     assert n_per_group_needed(30.0) == pytest.approx(4713, abs=5)
     assert n_per_group_needed(30.0, power=0.9) > n_per_group_needed(30.0)
+
+
+def test_decision_rule():
+    big_null = equivalence(primary_test(simulate({}, n_per=6000, seed=11)), 3.0)
+    assert decide(big_null, 3.0).startswith("supported")
+    effect = equivalence(primary_test(simulate({"time": 8.0}, n_per=3000, seed=12)), 3.0)
+    assert decide(effect, 3.0).startswith("refuted")
+    small = equivalence(primary_test(simulate({}, n_per=300, seed=13)), 3.0)
+    assert decide(small, 3.0).startswith("inconclusive")

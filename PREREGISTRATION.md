@@ -1,13 +1,11 @@
 # Preregistration
 
-Status: draft. Nothing below is fixed until the prediction and date are filled in and the file is committed. After that commit, this file is not edited. Any later change goes in a dated amendment at the bottom, with the reason, and the report lists every amendment.
+Status: fixed on 2026-10-07, before any confirmatory pair was scored. This file is not edited after the commit that dates it. Any later change goes in a dated amendment at the bottom, with the reason, and the report lists every amendment.
 
-`src/analyze.py` will not run until the two lines below are filled in.
+Prediction: a win is a win. Next-game ACPL does not differ between pairs after a win on time, by checkmate and by resignation; every pairwise difference lies within plus or minus 3 cp.
+Date fixed: 2026-10-07
 
-Prediction: TBD
-Date fixed:
-
-The three options are in the README. Write one of them in a sentence that names the ordering, for example "next-game ACPL is highest after a win on time, and the time vs checkmate and time vs resign differences are both positive". All tests stay two-tailed whichever is chosen.
+Who chose it and why: Karana asked Claude to choose the prediction and sample size. Claude chose the null because Gee et al. found almost no winner effects on Lichess outcomes, and the exploratory pilot below found no difference between win types (every adjusted gap within 4 cp, with the direction flipping between rating bands). The two directional theories in the README remain the alternatives the test can detect.
 
 ## What has been looked at before fixing this
 
@@ -79,7 +77,7 @@ A pair is kept if the player's rating in the next game is in [1200, 2000) and th
 
 - Pilot: 200 pairs per group, drawn as above. It is exploratory. Its results are used to choose the prediction below and to estimate the noise for the sample size. It is never reported as the test.
 - Confirmatory: N pairs per group, drawn the same way but excluding every player in the pilot (`--exclude data/pilot-scores/sample.parquet`). Only this sample is analysed under the decision rule.
-- N: [N] pairs per group, set from the pilot's standard deviation of ACPL so that a 2 cp difference has at least 80% power after Holm correction. Written here before the confirmatory draw.
+- N: 6,500 pairs per group. The pilot's residual SD of ACPL was 46.7 cp. A simulation with that SD gives 85% power for all three pairwise 90% confidence intervals to fall inside plus or minus 3 cp when the true differences are zero, after allowing for the 6.5% of pairs the pilot lost to games with fewer than 5 scored moves.
 
 ## Dependent variable
 
@@ -97,11 +95,16 @@ Mean centipawn loss of the player over their own moves 15 to 30 in the current g
 3. Omnibus test: Wald test that both win-type coefficients are zero, chi-squared with 2 degrees of freedom, alpha 0.05, two-tailed.
 4. Pairwise: time minus checkmate, resignation minus checkmate and time minus resignation, from the same model, with Holm correction and 95% confidence intervals.
 5. Effect sizes: the adjusted differences in centipawns, and divided by the pooled SD of ACPL.
-6. Smallest effect of interest: 2 cp. A significant difference smaller than this is reported as detectable and practically negligible.
+6. Smallest effect of interest: 3 cp, about 4% of the pilot's mean ACPL of 72 cp. It was 2 cp in the draft; it moved to 3 cp after the pilot showed the noise was larger than assumed, because 2 cp would have needed about 11,400 pairs per group. A significant difference smaller than 3 cp is reported as detectable and practically negligible.
+7. Equivalence: two one-sided tests (TOST) at alpha .05 for each pair against plus or minus 3 cp, which is the same as the 90% confidence interval lying inside plus or minus 3 cp.
 
 ## Decision rule
 
-The prediction is supported if the omnibus test is significant and the post-hoc pairs it names are significant in the predicted direction and at least as large as the smallest effect of interest. The null ("a win is a win") is supported if the omnibus test is not significant and every pair's 95% confidence interval lies inside plus or minus the smallest effect of interest. Anything else is reported as inconclusive.
+- Supported: all three pairwise 90% confidence intervals lie inside plus or minus 3 cp.
+- Refuted: the omnibus Wald test is significant and at least one pairwise difference is significant after Holm correction with an absolute size of at least 3 cp. The report then says which directional theory the pattern matches: higher ACPL after a win on time matches the lucky escape; higher ACPL after checkmate matches earned confidence.
+- Anything else is inconclusive.
+
+`analyze.py` applies this rule and prints the decision.
 
 ## Checks that decide whether an effect is real
 

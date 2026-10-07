@@ -122,11 +122,39 @@ def _contrasts(params, cov):
         e, se = est(a, ref)
         rows.append({"A": a, "B": ref, "diff": e, "se": se,
                      "ci95": [e - 1.96 * se, e + 1.96 * se],
+                     "ci90": [e - 1.645 * se, e + 1.645 * se],
+                     "se_for_tost": se,
                      "z": e / se, "p": float(2 * stats.norm.sf(abs(e / se)))})
     holm = multipletests([r["p"] for r in rows], method="holm")[1]
     for r, ph in zip(rows, holm):
         r["p_holm"] = float(ph)
     return {"wald_chi2": wald, "df": 2, "p": float(stats.chi2.sf(wald, 2)), "pairs": rows}
+
+
+def equivalence(r, sesoi):
+    """TOST against +-sesoi for each pair; adds tost_p and equivalent in place."""
+    for x in r.get("pairs", []):
+        se = x["se_for_tost"]
+        p_low = stats.norm.sf((x["diff"] + sesoi) / se)    # H0: diff <= -sesoi
+        p_high = stats.norm.cdf((x["diff"] - sesoi) / se)  # H0: diff >= +sesoi
+        x["tost_p"] = float(max(p_low, p_high))
+        x["equivalent"] = bool(-sesoi < x["ci90"][0] and x["ci90"][1] < sesoi)
+    return r
+
+
+def decide(r, sesoi, alpha=0.05):
+    """The preregistered decision rule for the prediction "a win is a win"."""
+    pairs = r.get("pairs", [])
+    if not pairs:
+        return "not tested"
+    if all(x["equivalent"] for x in pairs):
+        return (f"supported: every pairwise difference is inside +-{sesoi} cp "
+                f"(90% CIs, TOST at alpha .05)")
+    real = [x for x in pairs if x["p_holm"] < alpha and abs(x["diff"]) >= sesoi]
+    if r["p"] < alpha and real:
+        names = ", ".join(f"{x['A']} minus {x['B']} = {x['diff']:.2f} cp" for x in real)
+        return f"refuted: the omnibus test is significant and {names} (Holm p < .05, at least {sesoi} cp)"
+    return "inconclusive: neither equivalence nor a difference of at least the smallest effect of interest"
 
 
 def primary_test(games, dv="acpl", extra=(), min_per_group=30):
@@ -189,11 +217,13 @@ def fmt(title, r):
     if "raw_means" in r:
         lines += ["", "| win type | raw mean ACPL | SD |", "|---|---|---|"]
         lines += [f"| {t} | {r['raw_means'][t]:.2f} | {r['raw_sds'][t]:.2f} |" for t in WIN_TYPES]
-    lines += ["", "| difference | adjusted cp | 95% CI | z | Holm p | d |", "|---|---|---|---|---|---|"]
+    lines += ["", "| difference | adjusted cp | 95% CI | 90% CI | z | Holm p | TOST p | d |",
+              "|---|---|---|---|---|---|---|---|"]
     for x in r["pairs"]:
         d = f"{x['d']:.3f}" if "d" in x else ""
+        tost = f"{x['tost_p']:.4g}" if "tost_p" in x else ""
         lines.append(f"| {x['A']} minus {x['B']} | {x['diff']:.2f} | [{x['ci95'][0]:.2f}, {x['ci95'][1]:.2f}] | "
-                     f"{x['z']:.2f} | {x['p_holm']:.4g} | {d} |")
+                     f"[{x['ci90'][0]:.2f}, {x['ci90'][1]:.2f}] | {x['z']:.2f} | {x['p_holm']:.4g} | {tost} | {d} |")
     return "\n".join(lines) + "\n"
 
 
@@ -209,6 +239,7 @@ def main():
     ap.add_argument("--min-tc-pairs", type=int, default=100,
                     help="check 1: pairs per group a time control needs to be tested on its own")
     ap.add_argument("--elo-bands", nargs="+", default=["1200-1600", "1600-2000"])
+    ap.add_argument("--sesoi", type=float, default=3.0, help="smallest effect of interest, cp")
     ap.add_argument("--prereg", default=os.path.join(ROOT, "PREREGISTRATION.md"))
     ap.add_argument("--exploratory", action="store_true",
                     help="pilot only: skip the preregistration gate and label the report exploratory")
@@ -239,6 +270,14 @@ def main():
     results["no_rematch"] = primary_test(games[~games.rematch.astype(bool)])
     results["mixed_model"] = mixed_check(games)
 
+    for key, val in list(results.items()):
+        if isinstance(val, dict) and "pairs" in val:
+            equivalence(val, args.sesoi)
+        elif isinstance(val, dict):
+            for sub in val.values():
+                if isinstance(sub, dict) and "pairs" in sub:
+                    equivalence(sub, args.sesoi)
+    results["decision"] = decide(results["primary"], args.sesoi)
     if "resid_sd" in results["primary"]:
         rsd = results["primary"]["resid_sd"]
         results["sample_size"] = {"resid_sd": rsd, "delta_cp": 2.0,
@@ -254,6 +293,7 @@ def main():
     md = [header,
           f"Pairs with a scored ACPL: {results['n_scored']:,}\n",
           "## Primary test\n", fmt("All time controls", results["primary"]),
+          f"Decision under the preregistered rule: **{results['decision']}**\n",
           f"Model: `{results['primary'].get('formula', '')}`, OLS with standard errors clustered by player.\n",
           "## Check 1: within each time control\n"]
     md += [fmt(tc, r) for tc, r in results["by_time_control"].items()] or ["No time control had enough pairs.\n"]
