@@ -3,8 +3,10 @@
 A study of whether the manner in which a chess game ends affects the quality of the player's
 following game, using the Lichess open database and engine-scored move quality.
 
-Status: pipeline written and tested on synthetic data. No Lichess data has been pulled yet, and the
-preregistration is waiting on a dated directional prediction. This file is the brief.
+Status: finished on 7 October 2026. The preregistered prediction, that a win is a win, was supported: next-game
+centipawn loss differed by under 1 cp between the three kinds of win. See `results/SUMMARY.md`. The design
+changed from the brief below to matched pairs; `PREREGISTRATION.md` is the plan that was actually run.
+This file is the original brief.
 
 ## The question
 

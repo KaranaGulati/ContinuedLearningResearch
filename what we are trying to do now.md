@@ -12,21 +12,12 @@ Karana chose a matched pairs design on 2026-10-07. The unit is a pair: a rapid w
 
 ## Where things stand
 
-- Data on disk (not committed, lost when the container goes): 1 to 5 August 2026 (12.3M games) and 1 to 5 September 2026 (12.0M games) in `data/2026-08` and `data/2026-09`, pairs in `data/partial-pairs/pairs.parquet` (rebuild with `build_pairs.py data/2026-08 data/2026-09 --out data/partial-pairs --allow-partial`).
-- Exploratory pilot done (200 pairs per group): no difference between win types, residual SD 46.7 cp. Report in `results/pilot/report.md`.
-- `PREREGISTRATION.md` is fixed and dated 2026-10-07 (commit 6ef4d78). At Karana's request Claude chose the prediction: a win is a win, tested by equivalence within plus or minus 3 cp, 6,500 pairs per group, pilot players excluded.
-- Confirmatory scoring started 2026-10-07 about 15:23 UTC into `data/confirm-scores` (about 19,500 pairs, 4.8 hours). The Bash background mode stops a job after 2 hours, so it has to be relaunched with the same command; it resumes from `scores.jsonl` and reuses the saved `sample.parquet`.
+Finished on 2026-10-07. All 38,852 confirmatory Stockfish jobs were scored and `analyze.py` gave the preregistered decision: supported. Next-game ACPL after a win on time, by checkmate and by resignation differed by at most 0.88 cp, with all three 90% CIs inside plus or minus 3 cp, across 18,002 pairs. The write-up for Karana's teacher is `results/SUMMARY.md`; full tables are in `results/confirmatory/report.md`.
 
-## Next steps
+## If work continues
 
-1. Keep the confirmatory run going until `games to score: 0`. Relaunch command:
-   ```
-   .venv/bin/python -u src/centipawn_loss.py --pairs data/partial-pairs/pairs.parquet --pgn data/2026-08 data/2026-09 \
-       --out data/confirm-scores --elo-min 1200 --elo-max 2000 --n-per-group 6500 --depth 15 \
-       --exclude data/pilot-scores/sample.parquet >> data/confirm-scores.log 2>&1
-   ```
-2. Run `analyze.py --scores data/confirm-scores --out results/confirmatory` (no `--exploratory`). It prints the preregistered decision.
-3. Commit `results/confirmatory/` and write up the result for Karana's teacher.
+- Possible extensions: a full month instead of nine days, blitz with time-pressure controls, other outcome measures (later moves, time use, result), or a baseline group such as next games after a loss.
+- The game data under `data/` is not committed and is gone once the container is reclaimed. Rebuilding it means rerunning `fetch_month.py` for 2026-08 and 2026-09 (the original runs stopped after about 12M games each).
 
 ## Settings already agreed
 
