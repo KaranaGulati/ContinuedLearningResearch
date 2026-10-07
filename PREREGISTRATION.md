@@ -20,7 +20,14 @@ A pilot on the first 2,000,000 games of the 2026-09 dump (about 17 hours of play
 - 19% of eligible rapid games carry Lichess [%eval] comments, not the 6% stated in the README.
 - Next-game result by condition was also printed: the player won 48.8% of next games after a win on time, 50.9% after checkmate and 49.9% after resignation. This is the outcome Gee et al. studied, not this study's dependent variable, but it was seen before the prediction was fixed, so it is recorded here.
 
-No move-quality number has been computed on any study game. No engine has been run on a study game except the 20-game timing benchmark, whose ACPL values are not printed.
+An exploratory pilot was then scored and analysed on 2026-10-07: 200 pairs per group drawn as in the Sampling section (199 checkmate pairs, one short of the matched strata), 560 pairs with a usable ACPL. Its full report is in `results/pilot/report.md`. What it showed:
+
+- Raw mean ACPL 71.7 after a win on time, 75.5 after checkmate, 70.9 after resignation. Adjusted differences: time minus checkmate -4.0 cp (95% CI -13.2 to 5.2), resignation minus checkmate -4.1 cp (-14.1 to 6.0), time minus resignation 0.1 cp (-9.2 to 9.3). Omnibus Wald p = 0.65.
+- In the 1200 to 1600 band checkmate was about 12 cp worse than the other two; in 1600 to 2000 the order reversed. Neither was significant.
+- Residual SD of ACPL after covariates: 46.7 cp. ACPL is right-skewed (median 62.6, 95th percentile 165.2, skew 1.54).
+- 39 of 599 pairs (6.5%) had fewer than 5 scored moves and no ACPL.
+
+The pilot's 592 players are excluded from the confirmatory sample. No confirmatory pair has been scored.
 
 ## Data
 
