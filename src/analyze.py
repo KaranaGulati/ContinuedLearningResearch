@@ -3,23 +3,32 @@
 Refuses to run until PREREGISTRATION.md exists and its directional
 prediction and date are filled in.
 
-Primary: one mean centipawn loss per player per condition (the mean of that
-player's game-level ACPL across the games scored in that condition), then a
-one-way repeated-measures ANOVA with Greenhouse-Geisser correction, eta
-squared and partial eta squared, and Holm-corrected paired t-tests as
-the post-hoc comparisons. All tests are two-tailed.
+Design: the unit is a pair (a rapid win, then the same player's next rapid
+game), and the three groups are pairs after a win on time, by checkmate and
+by resignation. A player can sit in more than one group, so observations
+from one player are not independent.
+
+Primary: OLS of the next game's ACPL on the win type (checkmate as the
+reference), adjusting for the player's Elo, the rating gap to the opponent,
+colour and time control, with standard errors clustered by player. The
+omnibus test is a Wald test that both win-type coefficients are zero. The
+three pairwise differences are tested from the same model with Holm
+correction, with 95% confidence intervals. Effect sizes are the adjusted
+differences in centipawns and as a fraction of the pooled SD of ACPL.
+All tests are two-tailed.
 
 Checks:
-  1. the primary test rerun within each time control
-  2. a mixed model on game-level ACPL with a player random intercept,
-     adding the previous game's final evaluation (player's view), rating
-     gap, colour and time control
+  1. the primary test within each time control that has enough pairs
+  2. the primary model plus the previous game's final evaluation (player's
+     view) and a rematch indicator
   3. the primary test restricted to previous wins where the player was not
      losing on the board at the end
   4. Elo band sensitivity
   5. the same test using Lichess's own [%eval] comments on the
      pre-analysed subset
   6. the primary test without rematches (next game against the same opponent)
+  7. a mixed model with a random intercept per player instead of clustered
+     standard errors
 
 Usage:
   python src/analyze.py --scores data/scores --out results
@@ -33,11 +42,12 @@ import sys
 
 import numpy as np
 import pandas as pd
-import pingouin as pg
-from scipy import stats
 import statsmodels.formula.api as smf
+from scipy import stats
+from statsmodels.stats.multitest import multipletests
 
 WIN_TYPES = ["time", "checkmate", "resign"]
+CONTRASTS = [("time", "checkmate"), ("resign", "checkmate"), ("time", "resign")]
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
@@ -62,9 +72,6 @@ def load(scores_dir, cap, min_moves):
         losses = r.get(f"{key}{color}_losses") if r else None
         return float(np.mean(losses)) if losses and len(losses) >= min_moves else np.nan
 
-    def n_moves(r, color):
-        return len(r.get(f"{color}_losses") or []) if r else 0
-
     def prev_final(gid, color):
         r = scores.get(gid)
         if not r or r.get("final_eval") is None:
@@ -74,94 +81,108 @@ def load(scores_dir, cap, min_moves):
 
     s = sample.copy()
     s["acpl"] = [acpl(scores.get(g), c) for g, c in zip(s.game_id, s.color)]
-    s["n_moves"] = [n_moves(scores.get(g), c) for g, c in zip(s.game_id, s.color)]
     s["lichess_acpl"] = [acpl(scores.get(g), c, "lichess_") for g, c in zip(s.game_id, s.color)]
     s["prev_final_eval"] = [prev_final(g, c) for g, c in zip(s.prev_game_id, s.prev_color)]
-    s["elo_gap"] = s.opp_elo - s.elo
     return s
 
 
-def _col(row, *names):
-    """First present column: pingouin renamed p-unc to p_unc and so on in 0.7."""
-    for name in names:
-        if name in row.index and not pd.isna(row[name]):
-            return float(row[name])
-    return None
+def _prepare(games, dv):
+    g = games.dropna(subset=[dv]).copy()
+    g["y"] = g[dv]
+    g["elo_100"] = (g.elo - 1600) / 100
+    g["elo_gap_100"] = (g.opp_elo - g.elo) / 100
+    g["rematch"] = g["rematch"].astype(int)
+    g["prev_final_eval_pawns"] = g.prev_final_eval / 100
+    g["win"] = pd.Categorical(g.prev_win_type, categories=["checkmate", "time", "resign"])
+    return g
 
 
-def primary_test(games, dv="acpl"):
-    """RM-ANOVA on player x condition means, among players complete on this subset."""
-    g = games.dropna(subset=[dv])
-    cell = g.groupby(["player", "prev_win_type"])[dv].mean().unstack()
-    cell = cell.reindex(columns=WIN_TYPES).dropna()
-    n = len(cell)
-    if n < 3:
-        return {"n_players": n, "note": "too few complete players"}
-    long = cell.reset_index().melt(id_vars="player", var_name="prev_win_type", value_name=dv)
-    aov = pg.rm_anova(data=long, dv=dv, within="prev_win_type", subject="player",
-                      correction=True, detailed=True)
-    effect, error = aov.iloc[0], aov.iloc[1]
-    ss_total = ((long[dv] - long[dv].mean()) ** 2).sum()
-    post = pg.pairwise_tests(data=long, dv=dv, within="prev_win_type", subject="player",
-                             padjust="holm", alternative="two-sided")
-    pairs = []
-    for _, r in post.iterrows():
-        diff = cell[r["A"]] - cell[r["B"]]
-        half = stats.t.ppf(0.975, n - 1) * diff.std(ddof=1) / np.sqrt(n)
-        pairs.append({"A": r["A"], "B": r["B"], "mean_diff": float(diff.mean()),
-                      "ci95": [float(diff.mean() - half), float(diff.mean() + half)],
-                      "t": float(r["T"]), "df": float(r["dof"]), "p_holm": _col(r, "p_corr", "p-corr"),
-                      "dz": float(diff.mean() / diff.std(ddof=1))})
-    out = {
-        "n_players": n,
-        "means": {t: float(cell[t].mean()) for t in WIN_TYPES},
-        "sds": {t: float(cell[t].std(ddof=1)) for t in WIN_TYPES},
-        "F": float(effect["F"]), "df1": int(effect["DF"]), "df2": int(error["DF"]),
-        "p": _col(effect, "p_unc", "p-unc"),
-        "eta2": float(effect["SS"] / ss_total),
-        "partial_eta2": float(effect["SS"] / (effect["SS"] + error["SS"])),
-        "posthoc": pairs,
-    }
-    for key, names in [("gg_epsilon", ("eps",)), ("p_gg", ("p_GG_corr", "p-GG-corr")),
-                       ("mauchly_p", ("p_spher", "p-spher"))]:
-        value = _col(effect, *names)
-        if value is not None:
-            out[key] = value
+def _formula(g, extra=()):
+    terms = ["C(win)", "elo_100", "elo_gap_100", "C(color)"]
+    if g.time_control.nunique() > 1:
+        terms.append("C(time_control)")
+    return "y ~ " + " + ".join(terms + list(extra))
+
+
+def _contrasts(params, cov):
+    """Wald omnibus and the three pairwise differences from win-type coefficients."""
+    names = {"time": "C(win)[T.time]", "resign": "C(win)[T.resign]"}
+    b = params[[names["time"], names["resign"]]].to_numpy()
+    v = cov.loc[[names["time"], names["resign"]], [names["time"], names["resign"]]].to_numpy()
+    wald = float(b @ np.linalg.solve(v, b))
+
+    def est(a, ref):
+        vec = np.array([float(a == "time") - float(ref == "time"),
+                        float(a == "resign") - float(ref == "resign")])
+        return float(vec @ b), float(np.sqrt(vec @ v @ vec))
+
+    rows = []
+    for a, ref in CONTRASTS:
+        e, se = est(a, ref)
+        rows.append({"A": a, "B": ref, "diff": e, "se": se,
+                     "ci95": [e - 1.96 * se, e + 1.96 * se],
+                     "z": e / se, "p": float(2 * stats.norm.sf(abs(e / se)))})
+    holm = multipletests([r["p"] for r in rows], method="holm")[1]
+    for r, ph in zip(rows, holm):
+        r["p_holm"] = float(ph)
+    return {"wald_chi2": wald, "df": 2, "p": float(stats.chi2.sf(wald, 2)), "pairs": rows}
+
+
+def primary_test(games, dv="acpl", extra=(), min_per_group=30):
+    g = _prepare(games, dv)
+    if extra:
+        g = g.dropna(subset=[c for c in extra if c in g])
+    counts = g.prev_win_type.value_counts().reindex(WIN_TYPES, fill_value=0)
+    out = {"n": {t: int(counts[t]) for t in WIN_TYPES}, "n_players": int(g.player.nunique())}
+    if counts.min() < min_per_group:
+        out["note"] = f"fewer than {min_per_group} pairs in a group"
+        return out
+    formula = _formula(g, extra)
+    groups = pd.factorize(g.player)[0]
+    fit = smf.ols(formula, g).fit(cov_type="cluster", cov_kwds={"groups": groups})
+    sd = float(g.y.std(ddof=1))
+    res = _contrasts(fit.params, fit.cov_params())
+    for r in res["pairs"]:
+        r["d"] = r["diff"] / sd
+    out.update(res)
+    out.update({
+        "formula": formula,
+        "raw_means": {t: float(g.y[g.prev_win_type == t].mean()) for t in WIN_TYPES},
+        "raw_sds": {t: float(g.y[g.prev_win_type == t].std(ddof=1)) for t in WIN_TYPES},
+        "pooled_sd": sd,
+        "covariates": {k: [float(fit.params[k]), float(fit.bse[k])] for k in fit.params.index
+                       if not k.startswith(("C(win)", "C(time_control)", "Intercept"))},
+    })
     return out
 
 
-def mixed_model(games):
-    g = games.dropna(subset=["acpl", "prev_final_eval"]).copy()
-    if g.player.nunique() < 10:
-        return {"note": "too few players"}
-    g["prev_final_eval_pawns"] = g.prev_final_eval / 100
-    g["rematch"] = g["rematch"].astype(int)
-    formula = ("acpl ~ C(prev_win_type, Treatment('checkmate')) + prev_final_eval_pawns"
-               " + elo_gap + rematch + C(color) + C(time_control)")
-    fit = smf.mixedlm(formula, g, groups=g["player"]).fit(reml=True)
-    keep = [k for k in fit.params.index if "prev_" in k or k in ("elo_gap", "rematch", "Intercept")]
-    return {
-        "n_games": int(len(g)), "n_players": int(g.player.nunique()), "formula": formula,
-        "coef": {k: float(fit.params[k]) for k in keep},
-        "se": {k: float(fit.bse[k]) for k in keep},
-        "p": {k: float(fit.pvalues[k]) for k in keep},
-    }
+def mixed_check(games, dv="acpl"):
+    g = _prepare(games, dv)
+    fit = smf.mixedlm(_formula(g), g, groups=g["player"]).fit(reml=True)
+    fe = [k for k in fit.params.index if k != "Group Var"]
+    res = _contrasts(fit.params[fe], fit.cov_params().loc[fe, fe])
+    counts = g.prev_win_type.value_counts().reindex(WIN_TYPES, fill_value=0)
+    res["n"] = {t: int(counts[t]) for t in WIN_TYPES}
+    res["n_players"] = int(g.player.nunique())
+    return res
 
 
-def fmt_primary(title, r):
-    if "F" not in r:
-        return f"### {title}\n\nn = {r['n_players']} complete players: {r.get('note', '')}\n"
-    p_line = f"p = {r['p']:.4g}"
-    if "p_gg" in r:
-        p_line += f", Greenhouse-Geisser p = {r['p_gg']:.4g} (epsilon {r['gg_epsilon']:.3f})"
-    lines = [f"### {title}", "",
-             f"n = {r['n_players']:,} players. F({r['df1']}, {r['df2']}) = {r['F']:.3f}, {p_line}, "
-             f"eta squared = {r['eta2']:.4f}, partial eta squared = {r['partial_eta2']:.4f}.", "",
-             "| condition | mean ACPL | SD |", "|---|---|---|"]
-    lines += [f"| {t} | {r['means'][t]:.2f} | {r['sds'][t]:.2f} |" for t in WIN_TYPES]
-    lines += ["", "| pair | mean diff | 95% CI | t | df | Holm p | dz |", "|---|---|---|---|---|---|---|"]
-    lines += [f"| {x['A']} vs {x['B']} | {x['mean_diff']:.2f} | [{x['ci95'][0]:.2f}, {x['ci95'][1]:.2f}] | "
-              f"{x['t']:.3f} | {x['df']:.0f} | {x['p_holm']:.4g} | {x['dz']:.3f} |" for x in r["posthoc"]]
+def fmt(title, r):
+    lines = [f"### {title}", ""]
+    if "pairs" not in r:
+        return "\n".join(lines + [f"n = {r['n']}: {r.get('note', '')}", ""])
+    n = r["n"]
+    lines.append(f"Pairs: time {n['time']:,}, checkmate {n['checkmate']:,}, resign {n['resign']:,} "
+                 f"({r['n_players']:,} players). Wald chi2({r['df']}) = {r['wald_chi2']:.3f}, "
+                 f"p = {r['p']:.4g}.")
+    if "raw_means" in r:
+        lines += ["", "| win type | raw mean ACPL | SD |", "|---|---|---|"]
+        lines += [f"| {t} | {r['raw_means'][t]:.2f} | {r['raw_sds'][t]:.2f} |" for t in WIN_TYPES]
+    lines += ["", "| difference | adjusted cp | 95% CI | z | Holm p | d |", "|---|---|---|---|---|---|"]
+    for x in r["pairs"]:
+        d = f"{x['d']:.3f}" if "d" in x else ""
+        lines.append(f"| {x['A']} minus {x['B']} | {x['diff']:.2f} | [{x['ci95'][0]:.2f}, {x['ci95'][1]:.2f}] | "
+                     f"{x['z']:.2f} | {x['p_holm']:.4g} | {d} |")
     return "\n".join(lines) + "\n"
 
 
@@ -174,8 +195,8 @@ def main():
                     help="minimum scored moves for a game's ACPL to count")
     ap.add_argument("--not-losing-cp", type=int, default=-100,
                     help="check 3: previous final eval (player's view) must be at least this")
-    ap.add_argument("--min-tc-players", type=int, default=100,
-                    help="check 1: complete players a time control needs to be tested on its own")
+    ap.add_argument("--min-tc-pairs", type=int, default=100,
+                    help="check 1: pairs per group a time control needs to be tested on its own")
     ap.add_argument("--elo-bands", nargs="+", default=["1200-1600", "1600-2000"])
     ap.add_argument("--prereg", default=os.path.join(ROOT, "PREREGISTRATION.md"))
     args = ap.parse_args()
@@ -183,16 +204,16 @@ def main():
     prediction, date = check_preregistration(args.prereg)
     games = load(args.scores, args.cap, args.min_moves)
     os.makedirs(args.out, exist_ok=True)
-    results = {"prediction": prediction, "prediction_date": date,
-               "n_games_scored": int(games.acpl.notna().sum())}
 
-    results["primary"] = primary_test(games)
-    results["by_time_control"] = {}
-    for tc, df in games.groupby("time_control"):
-        r = primary_test(df)
-        if r["n_players"] >= args.min_tc_players:
-            results["by_time_control"][tc] = r
-    results["mixed_model"] = mixed_model(games)
+    results = {"prediction": prediction, "prediction_date": date,
+               "n_scored": int(games.acpl.notna().sum()),
+               "primary": primary_test(games)}
+    results["by_time_control"] = {
+        tc: primary_test(df, min_per_group=args.min_tc_pairs)
+        for tc, df in games.groupby("time_control")
+        if df.prev_win_type.value_counts().reindex(WIN_TYPES, fill_value=0).min() >= args.min_tc_pairs
+    }
+    results["previous_position"] = primary_test(games, extra=("prev_final_eval_pawns", "rematch"))
     results["not_losing_at_end"] = primary_test(games[games.prev_final_eval >= args.not_losing_cp])
     results["elo_bands"] = {}
     for band in args.elo_bands:
@@ -200,34 +221,33 @@ def main():
         results["elo_bands"][band] = primary_test(games[(games.elo >= lo) & (games.elo < hi)])
     results["lichess_eval_subset"] = primary_test(games, dv="lichess_acpl")
     results["no_rematch"] = primary_test(games[~games.rematch.astype(bool)])
+    results["mixed_model"] = mixed_check(games)
 
     with open(os.path.join(args.out, "results.json"), "w") as f:
         json.dump(results, f, indent=2)
 
     md = [f"# Results\n\nPreregistered prediction ({date}): {prediction}\n",
-          f"Games with a scored ACPL: {results['n_games_scored']:,}\n",
-          "## Primary test\n", fmt_primary("All time controls", results["primary"]),
+          f"Pairs with a scored ACPL: {results['n_scored']:,}\n",
+          "## Primary test\n", fmt("All time controls", results["primary"]),
+          f"Model: `{results['primary'].get('formula', '')}`, OLS with standard errors clustered by player.\n",
           "## Check 1: within each time control\n"]
-    md += [fmt_primary(tc, r) for tc, r in sorted(results["by_time_control"].items(),
-                                                  key=lambda kv: -kv[1]["n_players"])]
-    mm = results["mixed_model"]
-    md.append("## Check 2: mixed model with previous final evaluation\n")
-    if "coef" in mm:
-        md.append(f"`{mm['formula']}`, random intercept per player, {mm['n_games']:,} games, "
-                  f"{mm['n_players']:,} players.\n")
-        md.append("| term | coef | SE | p |\n|---|---|---|---|")
-        md += [f"| {k} | {mm['coef'][k]:.3f} | {mm['se'][k]:.3f} | {mm['p'][k]:.4g} |" for k in mm["coef"]]
-        md.append("")
-    else:
-        md.append(mm.get("note", "") + "\n")
+    md += [fmt(tc, r) for tc, r in results["by_time_control"].items()] or ["No time control had enough pairs.\n"]
+    md.append("## Check 2: adding the previous game's final evaluation and rematch\n")
+    md.append(fmt("Previous position", results["previous_position"]))
+    cov = results["previous_position"].get("covariates", {})
+    if "prev_final_eval_pawns" in cov:
+        b, se = cov["prev_final_eval_pawns"]
+        md.append(f"Previous final evaluation: {b:.2f} cp of ACPL per pawn (SE {se:.2f}).\n")
     md.append(f"## Check 3: previous win where the player was not losing (final eval >= {args.not_losing_cp} cp)\n")
-    md.append(fmt_primary("Not losing at the end", results["not_losing_at_end"]))
+    md.append(fmt("Not losing at the end", results["not_losing_at_end"]))
     md.append("## Check 4: Elo band sensitivity\n")
-    md += [fmt_primary(b, r) for b, r in results["elo_bands"].items()]
+    md += [fmt(b, r) for b, r in results["elo_bands"].items()]
     md.append("## Check 5: Lichess pre-analysed subset\n")
-    md.append(fmt_primary("Lichess [%eval]", results["lichess_eval_subset"]))
+    md.append(fmt("Lichess [%eval]", results["lichess_eval_subset"]))
     md.append("## Check 6: rematches removed\n")
-    md.append(fmt_primary("Next game against a different opponent", results["no_rematch"]))
+    md.append(fmt("Next game against a different opponent", results["no_rematch"]))
+    md.append("## Check 7: mixed model with a random intercept per player\n")
+    md.append(fmt("Mixed model", results["mixed_model"]))
     with open(os.path.join(args.out, "report.md"), "w") as f:
         f.write("\n".join(md))
     print("\n".join(md))

@@ -1,20 +1,32 @@
-"""Score move quality with Stockfish on a random sample of players.
+"""Score move quality with Stockfish on a matched sample of pairs.
 
-Sampling: players are drawn at random from those who, after the Elo band and
-game-length filters, have at least one pair in each of the three conditions.
-For each sampled player at most --max-per-cell games per condition are
-scored, drawn at random. The previous game of every scored pair also gets a
-single evaluation of its final position (the previous-position covariate).
+A pair is a rapid win followed by the same player's next rapid game. The
+unit of analysis is the pair, and the three groups are pairs whose first
+game was a win on time, by checkmate or by resignation.
+
+Sampling, all reproducible from --seed:
+  1. Keep pairs whose next game is in the Elo band and reaches --min-ply,
+     dropping players listed in --exclude (for example the pilot's players,
+     so the confirmatory sample never reuses them).
+  2. Keep at most one pair per player per group, chosen at random, so a
+     player can appear in one, two or all three groups but never twice in one.
+  3. Draw --n-per-group win-on-time pairs at random. Then draw the checkmate
+     and resignation groups stratum by stratum to match the time group's mix
+     of Elo (100-point bins) and time control. The time group is the
+     reference because it is the smallest and the most different.
+
+The previous game of every scored pair also gets one evaluation of its final
+position (the previous-position covariate).
 
 Output (in --out):
   scores.jsonl   one line per game, appended as games finish, so a stopped
                  run resumes where it left off
-  sample.parquet the pairs that were selected for scoring
+  sample.parquet the pairs selected for scoring
 
 Usage:
-  python src/centipawn_loss.py --pairs data/pairs/pairs.parquet \
-      --pgn data/2025-03 data/2025-04 --out data/scores \
-      --elo-min 1200 --elo-max 2000 --n-players 3000 --depth 15
+  python src/centipawn_loss.py --pairs data/partial-pairs/pairs.parquet \
+      --pgn data/2026-08 data/2026-09 --out data/pilot-scores \
+      --elo-min 1200 --elo-max 2000 --n-per-group 200 --depth 15
 """
 
 import argparse
@@ -40,18 +52,31 @@ from pgn_stream import iter_games  # noqa: E402
 WIN_TYPES = ["time", "checkmate", "resign"]
 
 
-def select_sample(pairs, elo_min, elo_max, min_ply, n_players, max_per_cell, seed):
+def select_sample(pairs, elo_min, elo_max, min_ply, n_per_group, seed, exclude=()):
     rng = np.random.default_rng(seed)
-    p = pairs[(pairs.elo >= elo_min) & (pairs.elo < elo_max) & (pairs.n_ply >= min_ply)]
-    cells = p.groupby(["player", "prev_win_type"]).size().unstack(fill_value=0)
-    cells = cells.reindex(columns=WIN_TYPES, fill_value=0)
-    complete = np.array(sorted(cells.index[(cells > 0).all(axis=1)]))
-    chosen = set(rng.permutation(complete)[:n_players]) if n_players else set(complete)
-    p = p[p.player.isin(chosen)]
-    # Random cap per player x condition, reproducible from the seed.
-    p = p.assign(_r=rng.random(len(p))).sort_values("_r")
-    p = p.groupby(["player", "prev_win_type"], group_keys=False).head(max_per_cell)
-    return p.drop(columns="_r").sort_values(["player", "start_ts"]).reset_index(drop=True)
+    p = pairs[(pairs.elo >= elo_min) & (pairs.elo < elo_max) & (pairs.n_ply >= min_ply)
+              & ~pairs.player.isin(set(exclude))].copy()
+    p["_r"] = rng.random(len(p))
+    p = p.sort_values("_r").groupby(["player", "prev_win_type"]).head(1)
+    p["stratum"] = (p.elo // 100 * 100).astype(int).astype(str) + "|" + p.time_control
+
+    groups = {t: g for t, g in p.groupby("prev_win_type")}
+    ref = groups["time"].head(n_per_group)  # already in random order
+    target = ref.stratum.value_counts()
+    chosen, shortfall = [ref], {}
+    for t in ("checkmate", "resign"):
+        g = groups[t]
+        picked = []
+        for stratum, k in target.items():
+            avail = g[g.stratum == stratum]
+            picked.append(avail.head(k))
+            if len(avail) < k:
+                shortfall[t] = shortfall.get(t, 0) + k - len(avail)
+        chosen.append(pd.concat(picked))
+    out = pd.concat(chosen).drop(columns="_r")
+    for t, k in shortfall.items():
+        print(f"warning: {t} group is {k} pairs short of the time group's strata")
+    return out.sort_values(["prev_win_type", "player"]).reset_index(drop=True)
 
 
 def collect_pgns(pgn_dirs, wanted):
@@ -108,8 +133,9 @@ def main():
     ap.add_argument("--elo-min", type=int, required=True)
     ap.add_argument("--elo-max", type=int, required=True)
     ap.add_argument("--min-ply", type=int, default=30)
-    ap.add_argument("--n-players", type=int, default=0, help="0 = every complete player")
-    ap.add_argument("--max-per-cell", type=int, default=5)
+    ap.add_argument("--n-per-group", type=int, required=True, help="pairs per win type")
+    ap.add_argument("--exclude", nargs="*", default=[],
+                    help="sample.parquet files whose players must not be reused")
     ap.add_argument("--depth", type=int, default=15)
     ap.add_argument("--first-move", type=int, default=15)
     ap.add_argument("--last-move", type=int, default=30)
@@ -122,10 +148,20 @@ def main():
 
     os.makedirs(args.out, exist_ok=True)
     pairs = pd.read_parquet(args.pairs)
-    sample = select_sample(pairs, args.elo_min, args.elo_max, args.min_ply,
-                           args.n_players, args.max_per_cell, args.seed)
-    sample.to_parquet(os.path.join(args.out, "sample.parquet"), index=False)
-    print(f"sample: {sample.player.nunique():,} players, {len(sample):,} pairs")
+    exclude = set()
+    for path in args.exclude:
+        exclude |= set(pd.read_parquet(path, columns=["player"]).player)
+    sample_path = os.path.join(args.out, "sample.parquet")
+    if os.path.exists(sample_path):
+        # Resuming: never redraw, or a rerun with different inputs would mix samples.
+        sample = pd.read_parquet(sample_path)
+    else:
+        sample = select_sample(pairs, args.elo_min, args.elo_max, args.min_ply,
+                               args.n_per_group, args.seed, exclude)
+        sample.to_parquet(sample_path, index=False)
+    counts = sample.prev_win_type.value_counts().to_dict()
+    print(f"sample: {len(sample):,} pairs {counts}, {sample.player.nunique():,} players, "
+          f"{len(exclude):,} players excluded")
 
     window_ids = set(sample.game_id)
     final_ids = set(sample.prev_game_id)
