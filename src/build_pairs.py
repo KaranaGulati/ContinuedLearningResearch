@@ -55,86 +55,141 @@ def check_complete(dirs, allow_partial):
         print(f"warning: {d} is partial ({reason})", file=sys.stderr)
 
 
-def read_games(dirs):
-    tables = []
+USE_COLUMNS = ["game_id", "white", "black", "start_ts", "eligible", "tc_base", "tc_inc",
+               "white_elo", "black_elo", "winner", "win_type", "n_ply", "duration_s", "has_eval"]
+WIN_CODE = {"time": 1, "checkmate": 2, "resign": 3}
+
+
+class Games:
+    """Compact column store for a month of games: numpy arrays, player names as codes."""
+
+
+def read_games(dirs, chunk_rows=2_000_000):
+    """Read games.tsv.zst in fixed-size chunks and keep compact arrays only.
+
+    A full month is ~90M rows. Arrow's CSV readers hold far more than that in
+    memory (the one-shot reader needs ~14 GB), so pandas reads 2M-row chunks
+    from a zstd stream and each chunk is reduced to numpy codes and freed.
+    """
+    import zstandard
+
+    name_code, names = {}, []
+    parts = {k: [] for k in ["game_id", "white", "black", "start", "eligible", "tc_base", "tc_inc",
+                             "white_elo", "black_elo", "winner", "win_type", "n_ply", "duration", "has_eval"]}
+    dtypes = {"game_id": str, "white": str, "black": str, "winner": str, "win_type": str,
+              "start_ts": "float64", "eligible": "float64", "tc_base": "float64", "tc_inc": "float64",
+              "white_elo": "float64", "black_elo": "float64", "n_ply": "float64",
+              "duration_s": "float64", "has_eval": "float64"}
+
+    def encode(col):
+        uniq = pd.unique(col)
+        lookup = np.empty(len(uniq), np.int32)
+        for i, name in enumerate(uniq):
+            code = name_code.get(name)
+            if code is None:
+                code = name_code[name] = len(names)
+                names.append(name)
+            lookup[i] = code
+        return lookup[pd.Index(uniq).get_indexer(col)]
+
     for d in dirs:
-        stream = pa.input_stream(os.path.join(d, "games.tsv.zst"), compression="zstd")
-        tables.append(pacsv.read_csv(
-            stream,
-            parse_options=pacsv.ParseOptions(delimiter="\t", quote_char=False),
-            convert_options=pacsv.ConvertOptions(
-                column_types=COLUMN_TYPES, strings_can_be_null=True,
-                null_values=[""], quoted_strings_can_be_null=True),
-        ))
-    table = pa.concat_tables(tables)
-    table = table.filter(pc.is_valid(table["start_ts"]))
-    # The same game can appear twice if overlapping inputs were passed.
-    if len(dirs) > 1:
-        _, first = np.unique(table["game_id"].to_numpy(zero_copy_only=False), return_index=True)
-        table = table.take(np.sort(first))
-    return table
+        raw = zstandard.ZstdDecompressor().stream_reader(open(os.path.join(d, "games.tsv.zst"), "rb"))
+        for ch in pd.read_csv(raw, sep="\t", usecols=USE_COLUMNS, dtype=dtypes, chunksize=chunk_rows,
+                              keep_default_na=False, na_values=[""], quoting=3, engine="c"):
+            ch = ch[ch.start_ts.notna()]
+            parts["game_id"].append(ch.game_id.fillna("").to_numpy().astype("S8"))
+            parts["white"].append(encode(ch.white.fillna("").to_numpy()))
+            parts["black"].append(encode(ch.black.fillna("").to_numpy()))
+            parts["start"].append(ch.start_ts.to_numpy().astype(np.int64))
+            parts["eligible"].append(ch.eligible.fillna(0).to_numpy().astype(bool))
+            parts["tc_base"].append(ch.tc_base.fillna(-1).to_numpy().astype(np.int32))
+            parts["tc_inc"].append(ch.tc_inc.fillna(-1).to_numpy().astype(np.int32))
+            parts["white_elo"].append(ch.white_elo.to_numpy().astype(np.float32))
+            parts["black_elo"].append(ch.black_elo.to_numpy().astype(np.float32))
+            w = ch.winner.fillna("").to_numpy()
+            parts["winner"].append((w == "white").astype(np.int8) + 2 * (w == "black").astype(np.int8))
+            wt = ch.win_type.fillna("").to_numpy()
+            code = np.zeros(len(ch), np.int8)
+            for label, v in WIN_CODE.items():
+                code[wt == label] = v
+            parts["win_type"].append(code)
+            parts["n_ply"].append(ch.n_ply.fillna(0).to_numpy().astype(np.int32))
+            parts["duration"].append(ch.duration_s.fillna(0).to_numpy().astype(np.float32))
+            parts["has_eval"].append(ch.has_eval.fillna(0).to_numpy().astype(np.int8))
+            del ch
+
+    G = Games()
+    for k, v in parts.items():
+        setattr(G, k, np.concatenate(v) if v else np.array([]))
+        v.clear()
+    G.names = np.array(names, dtype=object)
+    G.n = len(G.start)
+    if len(dirs) > 1:  # the same game can appear twice if overlapping inputs were passed
+        _, first = np.unique(G.game_id, return_index=True)
+        keep = np.sort(first)
+        for k in parts:
+            setattr(G, k, getattr(G, k)[keep])
+        G.n = len(keep)
+    return G
 
 
-def build_pairs(table, cutoff_s, min_gap_s):
-    """Return a DataFrame of valid (previous win, current game) pairs."""
-    n = table.num_rows
-    names = pa.chunked_array(table["white"].chunks + table["black"].chunks)
-    player = pc.dictionary_encode(names).combine_chunks()
-    player_code = player.indices.to_numpy()
-    player_names = player.dictionary
-    # Row i < n is White in game i, row n + i is Black in game i, so swapping
-    # the halves gives each row's opponent.
-    opponent_code = np.concatenate([player_code[n:], player_code[:n]])
+def _bool(arr):
+    return pc.fill_null(arr, False).to_numpy(zero_copy_only=False)
 
-    start = table["start_ts"].to_numpy().astype(np.int64)
-    duration = np.nan_to_num(table["duration_s"].to_numpy(zero_copy_only=False).astype(float))
-    end = start + duration.astype(np.int64)
-    game_idx = np.concatenate([np.arange(n), np.arange(n)])
-    color = np.concatenate([np.zeros(n, np.int8), np.ones(n, np.int8)])  # 0 white, 1 black
-    start2 = np.concatenate([start, start])
-    end2 = np.concatenate([end, end])
 
-    order = np.lexsort((game_idx, start2, player_code))
-    p, g, c = player_code[order], game_idx[order], color[order]
-    o = opponent_code[order]
-    s, e = start2[order], end2[order]
+def build_pairs(G, cutoff_s, min_gap_s):
+    """Return a DataFrame of valid (previous win, current game) pairs.
 
-    same_player = p[1:] == p[:-1]
-    prev_g, prev_c, prev_end = g[:-1], c[:-1], e[:-1]
-    cur_g, cur_c, cur_start = g[1:], c[1:], s[1:]
-    gap = cur_start - prev_end
+    Rows are (game, colour); row i < n is White in game i and row n + i is
+    Black, so a row's colour follows from its position in the sort.
+    """
+    n = G.n
+    t0 = int(G.start.min()) if n else 0
+    start_rel = (G.start - t0).astype(np.int32)
+    end_rel = start_rel.astype(np.int64) + G.duration.astype(np.int64)
 
-    eligible = table["eligible"].to_numpy(zero_copy_only=False).astype(bool)
-    winner = table["winner"].to_numpy(zero_copy_only=False)
-    win_type = table["win_type"].to_numpy(zero_copy_only=False)
-    prev_won = np.where(prev_c == 0, winner[prev_g] == "white", winner[prev_g] == "black")
-    prev_type_ok = np.isin(win_type[prev_g], WIN_TYPES)
+    player_code = np.concatenate([G.white, G.black])
+    gidx = np.concatenate([np.arange(n, dtype=np.int32), np.arange(n, dtype=np.int32)])
+    order = np.lexsort((gidx, start_rel[gidx], player_code))
+    p = player_code[order]
+    g = gidx[order]
+    c = (order >= n).astype(np.int8)  # 0 white, 1 black
+    del order, gidx, player_code
 
-    keep = (same_player & eligible[prev_g] & eligible[cur_g] & prev_won & prev_type_ok
-            & (gap >= min_gap_s) & (gap <= cutoff_s))
-    k = np.flatnonzero(keep)
-    cg, cc, pg = cur_g[k], cur_c[k], prev_g[k]
+    prev_g, cur_g, prev_c = g[:-1], g[1:], c[:-1]
+    mask = p[1:] == p[:-1]
+    mask &= G.eligible[prev_g]
+    mask &= G.eligible[cur_g]
+    mask &= G.win_type[prev_g] > 0
+    mask &= G.winner[prev_g] == prev_c + 1
+    k = np.flatnonzero(mask)
+    del mask
+    gap = start_rel[cur_g[k]].astype(np.int64) - end_rel[prev_g[k]]
+    ok = (gap >= min_gap_s) & (gap <= cutoff_s)
+    k, gap = k[ok], gap[ok]
 
-    def col(name):
-        return table[name].to_numpy(zero_copy_only=False)
-
-    white_elo, black_elo = col("white_elo"), col("black_elo")
+    cg, pg = cur_g[k], prev_g[k]
+    cc, pc_ = c[1:][k], prev_c[k]
+    labels = np.array(["", "time", "checkmate", "resign"], dtype=object)
+    winner_name = np.array(["", "white", "black"], dtype=object)
+    opp_cur = np.where(cc == 0, G.black[cg], G.white[cg])
+    opp_prev = np.where(pc_ == 0, G.black[pg], G.white[pg])
     return pd.DataFrame({
-        "player": player_names.take(pa.array(p[1:][k])).to_numpy(zero_copy_only=False),
+        "player": G.names[p[1:][k]],
         "color": np.where(cc == 0, "white", "black"),
-        "game_id": col("game_id")[cg],
-        "prev_game_id": col("game_id")[pg],
-        "prev_win_type": win_type[pg],
-        "prev_color": np.where(prev_c[k] == 0, "white", "black"),
-        "gap_s": gap[k],
-        "rematch": o[1:][k] == o[:-1][k],
-        "start_ts": cur_start[k],
-        "time_control": [f"{int(b)}+{int(i)}" for b, i in zip(col("tc_base")[cg], col("tc_inc")[cg])],
-        "elo": np.where(cc == 0, white_elo[cg], black_elo[cg]),
-        "opp_elo": np.where(cc == 0, black_elo[cg], white_elo[cg]),
-        "result_for_player": _result_for(col("winner")[cg], cc),
-        "n_ply": col("n_ply")[cg],
-        "has_eval": col("has_eval")[cg],
+        "game_id": G.game_id[cg].astype(str),
+        "prev_game_id": G.game_id[pg].astype(str),
+        "prev_win_type": labels[G.win_type[pg]],
+        "prev_color": np.where(pc_ == 0, "white", "black"),
+        "gap_s": gap,
+        "rematch": opp_cur == opp_prev,
+        "start_ts": start_rel[cg].astype(np.int64) + t0,
+        "time_control": [f"{b}+{i}" for b, i in zip(G.tc_base[cg], G.tc_inc[cg])],
+        "elo": np.where(cc == 0, G.white_elo[cg], G.black_elo[cg]).astype(np.float64),
+        "opp_elo": np.where(cc == 0, G.black_elo[cg], G.white_elo[cg]).astype(np.float64),
+        "result_for_player": _result_for(winner_name[G.winner[cg]], cc),
+        "n_ply": G.n_ply[cg],
+        "has_eval": G.has_eval[cg],
     })
 
 
@@ -204,7 +259,7 @@ def main():
     pairs.to_parquet(os.path.join(args.out, "pairs.parquet"), index=False)
 
     report = (f"# Cell counts\n\ninputs: {', '.join(args.dirs)}\n"
-              f"games read: {table.num_rows:,}\nsession cutoff: {args.cutoff_min} min\n\n"
+              f"games read: {table.n:,}\nsession cutoff: {args.cutoff_min} min\n\n"
               + cell_counts(pairs, args.min_ply))
     with open(os.path.join(args.out, "cell_counts.txt"), "w") as f:
         f.write(report)
