@@ -12,16 +12,29 @@ Karana chose a matched pairs design on 2026-10-07. The unit is a pair: a rapid w
 
 ## Where things stand
 
-Finished on 2026-10-07. All 38,852 confirmatory Stockfish jobs were scored and `analyze.py` gave the preregistered decision: supported. Next-game ACPL after a win on time, by checkmate and by resignation differed by at most 0.88 cp, with all three 90% CIs inside plus or minus 3 cp, across 18,002 pairs. The write-up for Karana's teacher is `results/SUMMARY.md`; full tables are in `results/confirmatory/report.md`.
+Study 1 is finished (prediction "a win is a win" supported; `results/SUMMARY.md`, `the research explained.md`, deck in `slides/`).
 
-## If work continues
+Study 2 is running. Its plan is fixed in `PREREGISTRATION_STUDY2.md` (commit 26b887d, 2026-10-12 11:02 UTC). Karana's predictions: RQ1 a win is a win (+-3 cp), RQ2 players reset after lucky and deserved time wins alike (+-2 cp). Karana approved automatic restarts of long jobs. His teacher has not approved the plan yet; Karana chose to run it anyway.
 
-- Possible extensions: a full month instead of nine days, blitz with time-pressure controls, other outcome measures (later moves, time use, result), or a baseline group such as next games after a loss.
-- The game data under `data/` is not committed and is gone once the container is reclaimed. Rebuilding it means rerunning `fetch_month.py` for 2026-08 and 2026-09 (the original runs stopped after about 12M games each).
+Progress files are committed to `results/study2-progress/` at each step so a new session can resume:
+- `screen.jsonl`: final-position scores of time wins (lucky = winner below -100 cp).
+- `sample.parquet`: the five groups.
+- `scores.jsonl`: next-game Stockfish scores so far.
+
+## Resuming study 2 in a new session
+
+1. Set up the venv and Stockfish (below).
+2. If `data/full-2026-09` is gone: `python src/fetch_month.py 2026-09 --out data/full-2026-09` (about 90 min alone), then `python src/build_pairs.py data/full-2026-09 --out data/full-pairs-09` (about 15 min, needs about 12 GB RAM).
+3. Copy the files from `results/study2-progress/` into `data/study2/` (screen.jsonl, and sample.parquet if present) and `data/study2-scores/` (scores.jsonl, sample.parquet).
+4. Screening, if not finished: `python src/study2.py screen --pairs data/full-pairs-09/pairs.parquet --pgn data/full-2026-09 --out data/study2 --block 70000`
+5. Groups: `python src/study2.py sample --pairs data/full-pairs-09/pairs.parquet --out data/study2`
+6. Scoring, repeat until "games to score: 0" (each run stops at the 2 h background limit and resumes):
+   `python -u src/centipawn_loss.py --sample data/study2/sample.parquet --pgn data/full-2026-09 --out data/study2-scores --no-final --depth 15`
+7. `python src/analyze_study2.py --scores data/study2-scores --out results/study2`, then write up.
 
 ## Settings already agreed
 
-Elo band 1200 to 2000, 30-minute session cutoff, Stockfish 16 at depth 15 with one thread per engine, evals capped at plus or minus 1000 cp, a game counts if at least 5 of the player's moves are scored, smallest effect of interest 3 cp.
+Elo band 1200 to 2000, 30-minute session cutoff, Stockfish 16 at depth 15 with one thread per engine, evals capped at plus or minus 1000 cp, a game counts if at least 5 of the player's moves are scored, smallest effect of interest 3 cp (study 1); study 2 uses 3 cp for RQ1 and 2 cp for RQ2.
 
 ## Environment setup (the container starts clean)
 
