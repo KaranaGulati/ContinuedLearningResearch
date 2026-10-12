@@ -161,7 +161,8 @@ def sample(args):
         pool = one_per_player(p[p.prev_win_type == t], rng)
         groups[f"rq1_{t}"] = matched_take(pool, groups["rq1_time"], rng)
     groups["rq2_lucky"] = lucky
-    groups["rq2_deserved"] = matched_take(screened[~screened.lucky], lucky, rng)
+    # The preregistration draws deserved pairs from all scored time wins.
+    groups["rq2_deserved"] = matched_take(sc[~sc.lucky], lucky, rng)
 
     out = pd.concat([g.assign(group=name) for name, g in groups.items()], ignore_index=True)
     out.to_parquet(os.path.join(args.out, "sample.parquet"), index=False)
