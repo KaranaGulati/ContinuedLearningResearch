@@ -1,12 +1,12 @@
 # Preregistration, study 2
 
-Status: draft for Karana's review. Nothing below is fixed until the date line is filled in and the file is committed. After that commit the file is not edited; any later change goes in a dated amendment at the bottom.
+Status: fixed on 2026-10-12, approved by Karana, before any 6 to 30 September game was scored. This file is not edited after the commit that dates it; any later change goes in a dated amendment at the bottom.
 
 Study 1 and its own preregistration are in `PREREGISTRATION.md` and `results/`. This study uses new data and asks one new question.
 
 Prediction RQ1: a win is a win. Next-game ACPL does not differ between pairs after a win on time, by checkmate and by resignation; every pairwise difference lies within plus or minus 3 cp.
 Prediction RQ2: players reset after every game. Next-game ACPL does not differ between lucky and deserved wins on time; the difference lies within plus or minus 2 cp.
-Date fixed:
+Date fixed: 2026-10-12
 
 Both predictions are Karana's.
 
