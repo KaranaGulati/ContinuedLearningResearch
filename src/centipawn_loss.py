@@ -128,13 +128,15 @@ def score_game(job):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--pairs", required=True)
+    ap.add_argument("--pairs", help="pairs.parquet to sample from (not needed with --sample)")
     ap.add_argument("--pgn", nargs="+", required=True, help="fetch_month.py output directories")
     ap.add_argument("--out", required=True)
-    ap.add_argument("--elo-min", type=int, required=True)
-    ap.add_argument("--elo-max", type=int, required=True)
+    ap.add_argument("--elo-min", type=int)
+    ap.add_argument("--elo-max", type=int)
     ap.add_argument("--min-ply", type=int, default=30)
-    ap.add_argument("--n-per-group", type=int, required=True, help="pairs per win type")
+    ap.add_argument("--n-per-group", type=int, help="pairs per win type")
+    ap.add_argument("--sample", help="score this ready-made sample.parquet instead of drawing one")
+    ap.add_argument("--no-final", action="store_true", help="skip the previous game's final-position eval")
     ap.add_argument("--exclude", nargs="*", default=[],
                     help="sample.parquet files whose players must not be reused")
     ap.add_argument("--depth", type=int, default=15)
@@ -155,24 +157,30 @@ def main():
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError:
         sys.exit(f"another centipawn_loss.py is already scoring into {args.out}")
-    pairs = pd.read_parquet(args.pairs)
+    if not args.sample and None in (args.pairs, args.elo_min, args.elo_max, args.n_per_group):
+        ap.error("--pairs, --elo-min, --elo-max and --n-per-group are needed unless --sample is given")
     exclude = set()
     for path in args.exclude:
         exclude |= set(pd.read_parquet(path, columns=["player"]).player)
     sample_path = os.path.join(args.out, "sample.parquet")
-    if os.path.exists(sample_path):
+    if args.sample:
+        sample = pd.read_parquet(args.sample)
+        if not os.path.exists(sample_path):
+            sample.to_parquet(sample_path, index=False)
+    elif os.path.exists(sample_path):
         # Resuming: never redraw, or a rerun with different inputs would mix samples.
         sample = pd.read_parquet(sample_path)
     else:
+        pairs = pd.read_parquet(args.pairs)
         sample = select_sample(pairs, args.elo_min, args.elo_max, args.min_ply,
                                args.n_per_group, args.seed, exclude)
         sample.to_parquet(sample_path, index=False)
-    counts = sample.prev_win_type.value_counts().to_dict()
+    counts = sample["group" if "group" in sample else "prev_win_type"].value_counts().to_dict()
     print(f"sample: {len(sample):,} pairs {counts}, {sample.player.nunique():,} players, "
           f"{len(exclude):,} players excluded")
 
     window_ids = set(sample.game_id)
-    final_ids = set(sample.prev_game_id)
+    final_ids = set() if args.no_final else set(sample.prev_game_id)
     out_path = os.path.join(args.out, "scores.jsonl")
     done = set()
     if os.path.exists(out_path):
