@@ -23,14 +23,13 @@ Progress files are committed to `results/study2-progress/` at each step so a new
 
 ## Resuming study 2 in a new session
 
+Everything needed is in `results/study2-progress/`; the raw September download is not needed any more.
+
 1. Set up the venv and Stockfish (below).
-2. If `data/full-2026-09` is gone: `python src/fetch_month.py 2026-09 --out data/full-2026-09` (about 90 min alone), then `python src/build_pairs.py data/full-2026-09 --out data/full-pairs-09` (about 15 min, needs about 12 GB RAM).
-3. Copy the files from `results/study2-progress/` into `data/study2/` (screen.jsonl, and sample.parquet if present) and `data/study2-scores/` (scores.jsonl, sample.parquet).
-4. Screening, if not finished: `python src/study2.py screen --pairs data/full-pairs-09/pairs.parquet --pgn data/full-2026-09 --out data/study2 --block 70000`
-5. Groups: `python src/study2.py sample --pairs data/full-pairs-09/pairs.parquet --out data/study2`
-6. Scoring, repeat until "games to score: 0" (each run stops at the 2 h background limit and resumes):
-   `python -u src/centipawn_loss.py --sample data/study2/sample.parquet --pgn data/full-2026-09 --out data/study2-scores --no-final --depth 15`
-7. `python src/analyze_study2.py --scores data/study2-scores --out results/study2`, then write up.
+2. `mkdir -p data/study2 data/study2-scores data/study2-pgn`, then copy from `results/study2-progress/`: `sample.parquet` to `data/study2/`, `scores.jsonl` to `data/study2-scores/`, `rapid.pgn.zst` (the 42,851 games to score) to `data/study2-pgn/`.
+3. Scoring, repeat until "games to score: 0" (each run stops at the 2 h background limit and resumes):
+   `python -u src/centipawn_loss.py --sample data/study2/sample.parquet --pgn data/study2-pgn --out data/study2-scores --no-final --depth 15`
+4. `python src/analyze_study2.py --scores data/study2-scores --out results/study2`, then write up.
 
 ## Settings already agreed
 
