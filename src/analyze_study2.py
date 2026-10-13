@@ -27,7 +27,7 @@ import statsmodels.formula.api as smf
 from scipy import stats
 
 sys.path.insert(0, os.path.dirname(__file__))
-from analyze import decide, equivalence, fmt, primary_test  # noqa: E402
+from analyze import decide, equivalence, fmt, mixed_check, primary_test  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RQ1_MAP = {"rq1_time": "time", "rq1_checkmate": "checkmate", "rq1_resign": "resign"}
@@ -88,6 +88,21 @@ def rq1_test(g, sesoi):
     return r
 
 
+def rq2_mixed(g):
+    g = g.dropna(subset=["acpl"]).copy()
+    g["lucky"] = (g.group == "rq2_lucky").astype(int)
+    g["elo_100"] = (g.elo - 1600) / 100
+    g["gap_100"] = (g.opp_elo - g.elo) / 100
+    fit = smf.mixedlm("acpl ~ lucky + elo_100 + gap_100 + C(color) + C(time_control)", g, groups=g["player"]).fit(reml=True)
+    d, se = float(fit.params["lucky"]), float(fit.bse["lucky"])
+    return {"n": g.group.value_counts().to_dict(), "n_players": int(g.player.nunique()),
+            "raw_means": g.groupby("group").acpl.mean().round(3).to_dict(), "diff": d, "se": se,
+            "ci90": [d - 1.645 * se, d + 1.645 * se], "ci95": [d - 1.96 * se, d + 1.96 * se],
+            "p": float(fit.pvalues["lucky"]),
+            "tost_p": float(max(stats.norm.sf((d + 2) / se), stats.norm.cdf((d - 2) / se))),
+            "decision": "(check only)"}
+
+
 def fmt_rq2(title, r):
     if "diff" not in r:
         return f"### {title}\n\n{r.get('note')}: {r.get('n')}\n"
@@ -121,6 +136,8 @@ def main():
         res["checks"][name] = {"rq1": rq1_test(f(s), 3.0), "rq2": rq2_test(f(rq2), 2.0)}
     strict = rq2[(rq2.group == "rq2_deserved") | (rq2.final_eval_winner < -300)]
     res["checks"]["stricter lucky (losing by > 3 pawns)"] = {"rq2": rq2_test(strict, 2.0)}
+    rq1g = s[s.group.isin(RQ1_MAP)].assign(prev_win_type=lambda d: d.group.map(RQ1_MAP))
+    res["checks"]["mixed model"] = {"rq1": mixed_check(rq1g), "rq2": rq2_mixed(rq2)}
 
     os.makedirs(args.out, exist_ok=True)
     json.dump(res, open(os.path.join(args.out, "results.json"), "w"), indent=2, default=float)
