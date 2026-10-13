@@ -14,7 +14,7 @@ Karana chose a matched pairs design on 2026-10-07. The unit is a pair: a rapid w
 
 Study 1 is finished (prediction "a win is a win" supported; `results/SUMMARY.md`, `the research explained.md`, deck in `slides/`).
 
-Study 2 is running. Its plan is fixed in `PREREGISTRATION_STUDY2.md` (commit 26b887d, 2026-10-12 11:02 UTC). Karana's predictions: RQ1 a win is a win (+-3 cp), RQ2 players reset after lucky and deserved time wins alike (+-2 cp). Karana approved automatic restarts of long jobs. His teacher has not approved the plan yet; Karana chose to run it anyway.
+Study 2 is finished (results in `results/study2/SUMMARY.md`): lucky time winners played 1.96 cp worse next game (95% CI 0.66 to 3.27, p = 0.003), formally inconclusive under the preregistered 2 cp rule; RQ1 inconclusive by 0.05 cp. Its plan was fixed in `PREREGISTRATION_STUDY2.md` (commit 26b887d, 2026-10-12 11:02 UTC). Karana's predictions: RQ1 a win is a win (+-3 cp), RQ2 players reset after lucky and deserved time wins alike (+-2 cp). Karana approved automatic restarts of long jobs. His teacher has not approved the plan yet; Karana chose to run it anyway.
 
 Progress files are committed to `results/study2-progress/` at each step so a new session can resume:
 - `screen.jsonl`: final-position scores of time wins (lucky = winner below -100 cp).
