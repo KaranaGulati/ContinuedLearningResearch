@@ -413,10 +413,10 @@ SEC = "Backup";
 s = slide();
 title(s, "References");
 const refs = [
-  "Backus, Cubel, Guid, Sanchez-Pages & Lopez Manas (2023). Quantitative Economics, 14(1).",
+  "Backus, Cubel, Guid, Sanchez-Pages & Lopez Manas (2023). Quantitative Economics, 14(1), 349-380.",
   "Chowdhary, Iacopini & Battiston (2023). Scientific Reports, 13, 2113.",
-  "Gee, Seese, Curley & Ward (2025). arXiv:2503.21713.",
-  "Guid & Bratko (2006). ICGA Journal.",
+  "Gee, Seese, Curley & Ward (2025). Journal of Quantitative Analysis in Sports, 22(2), 117-132. Preprint arXiv:2503.21713.",
+  "Guid & Bratko (2006). Computer analysis of world chess champions. ICGA Journal, 29(2), 65-73.",
   "Lichess open database (2026). database.lichess.org, CC0.",
   "Karana Gulati (2026). Study 1 and study 2 preregistrations and results. github.com/KaranaGulati/ContinuedLearningResearch.",
 ];

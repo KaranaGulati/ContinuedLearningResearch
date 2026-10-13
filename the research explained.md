@@ -41,9 +41,9 @@ The download script streams each month and never stores the full 30 GB file, bec
 ### Which games count
 
 - Rated games of standard chess, with no custom starting position.
-- Rapid games only, using Lichess's own rule: base time plus 40 times the increment is at least 8 minutes and under 25 minutes. Bullet and blitz were left out on purpose. In fast games, time pressure and move quality are tangled together (Sunde, Zegners and Strittmatter showed the time-pressure effect flips sign depending on how you condition on decision time), so a cleaner comparison needed slower games.
+- Rapid games only, using Lichess's own rule: base time plus 40 times the increment is at least 8 minutes and under 25 minutes. Bullet and blitz were left out on purpose. In fast games, time pressure and move quality are tangled together (in professional over-the-board games, Sunde, Zegners and Strittmatter found that the effect of time left on the clock flips sign once you hold the time spent on the move fixed), so a cleaner comparison needed slower games. Their games were classical, not online blitz, so this is a reason for caution rather than a direct finding about Lichess.
 - Games involving accounts with the BOT title were removed.
-- Players rated 1200 to 2000 in the next game.
+- Players rated 1200 to 2000 in the next game. Lichess stores ratings in tags called WhiteElo and BlackElo, but the numbers are Glicko-2 ratings, so "Elo" in this document means the Lichess rating.
 
 ## 5. Turning games into pairs
 
@@ -76,7 +76,7 @@ For each move, Stockfish evaluates the position before the move and the position
 Settings:
 
 - Stockfish 16 at a fixed search depth of 15, one thread per engine. Fixed depth rather than a time limit makes the numbers reproducible on any machine, and depth 15 matches Backus et al.
-- Only moves 15 to 30, following Backus et al., to skip memorised opening moves and keep the compute manageable.
+- Only moves 15 to 30, following Backus et al., who took the window from Guid and Bratko, to skip memorised opening moves and keep the compute manageable.
 - Each position is evaluated once. The position after your move is the position before your opponent's move, so one evaluation serves both, which halves the work.
 - Evaluations are flipped for Black. Engines report scores from White's side by convention, and forgetting the flip makes every Black move look like a blunder.
 - Losses below zero are set to zero, because nobody can beat the engine's best move and negative values are search noise.
@@ -243,11 +243,14 @@ The fetch commands read the full months. The study used the first part of each, 
 
 ## 19. References
 
-- Backus, P., Cubel, M., Guid, M., Sanchez-Pages, S. and Lopez Manas, E. (2023). Quantitative Economics 14(1). Houdini 1.5a at depth 15, moves 15 to 30.
-- Chowdhary, S., Iacopini, I. and Battiston, F. (2023). Scientific Reports 13:2113.
-- Gee, Seese, Curley and Ward (2025). arXiv:2503.21713.
-- Guid, M. and Bratko, I. (2006). ICGA Journal.
-- Kuenn, Seel and Zegners. IZA Discussion Paper 13491.
-- Regan, Biswas and Zhou (AAAI-14 workshop). Centipawn values are not comparable across engines.
-- Sunde, Zegners and Strittmatter. Cited in the brief for the finding that the time-pressure effect on move quality flips sign depending on whether decision time is conditioned on; full reference to be added.
+Every reference below was checked against the source text on 13 October 2026; details are in `LITERATURE_REVIEW.md`.
+
+
+- Backus, P., Cubel, M., Guid, M., Sanchez-Pages, S. and Lopez Manas, E. (2023). Gender, competition, and performance: Evidence from chess players. Quantitative Economics 14(1), 349-380. Houdini 1.5a at depth 15, moves 15 to 30.
+- Chowdhary, S., Iacopini, I. and Battiston, F. (2023). Quantifying human performance in chess. Scientific Reports 13:2113.
+- Gee, A., Seese, S. O., Curley, J. P. and Ward, O. G. (2025). Investigating experiential effects in online chess using a hierarchical Bayesian analysis. Journal of Quantitative Analysis in Sports 22(2), 117-132. Preprint arXiv:2503.21713.
+- Guid, M. and Bratko, I. (2006). Computer analysis of world chess champions. ICGA Journal 29(2), 65-73.
+- Kuenn, S., Seel, C. and Zegners, D. (2020). Cognitive performance in the home office: Evidence from professional chess. IZA Discussion Paper 13491. Published as Cognitive performance in remote work: Evidence from professional chess, The Economic Journal 132(643), 1218-1232.
+- Regan, K. W., Biswas, T. and Zhou, J. (2014). Human and computer preferences at chess. AAAI-14 Workshop on Advances in Preference Handling. Centipawn values are not comparable across engines.
+- Sunde, U., Zegners, D. and Strittmatter, A. (2022). Speed, quality, and the optimal timing of complex decisions: Field evidence. arXiv:2201.10808. Published as Speed and quality of complex strategic decisions, PNAS 123(20), e2531472123 (2026).
 - Lichess open database, https://database.lichess.org/ (CC0).

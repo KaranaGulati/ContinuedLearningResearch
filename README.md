@@ -296,5 +296,5 @@ The months above are examples. Check them against the Lichess known-issues list 
 - Regan, Biswas and Zhou (AAAI-14 workshop). Centipawn units are not comparable across engines;
   Stockfish runs about 1.5 times higher in magnitude than most programs.
 
-A full verified literature review, with 221 source-traced claims, is in
-`research/chess-behavioral-lit/REPORT.md`.
+A source-checked literature review, which also corrects a few details in this section, is in
+`LITERATURE_REVIEW.md`.
