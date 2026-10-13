@@ -174,7 +174,7 @@ text(s, "Example from the previous slide: (10 + 290 + 0 + 20) ÷ 4 = 80 cp", { x
 text(s, "In study 2's next games", { x: M, y: 3.0, w: W, h: 0.4, fontSize: F.header, bold: true, color: HEX.blue });
 bullets(s, ["Middle player: 61 cp per move", "Middle half of games: 38 to 95 cp", "Each 100 rating points stronger: about 3.7 cp lower"],
   { x: M, y: 3.5, w: W, h: 1.5 });
-cite(s, "Study 2, 23,995 lucky and deserved pairs; rating effect from the regression in Part 3");
+cite(s, "Study 2, 23,995 lucky and deserved pairs; rating effect from the regression in Part 4");
 s.addNotes("ACPL is just the average of those losses over the moves we score. A perfect game would be zero. Club players in our data lose about 61 centipawns per move on a typical game. Stronger players lose less: about 3.7 centipawns less for every 100 rating points. That gives us a way to translate centipawns into rating points later.");
 
 s = slide();
@@ -188,8 +188,107 @@ text(s, "1,288 lucky time winners played 2.2 cp worse. Too few to be sure (p = 0
 cite(s, "Study 1: Lichess rated rapid, 1 to 5 August and 1 to 5 September 2026; results/SUMMARY.md");
 s.addNotes("Our first study asked whether winning on time, by checkmate or by resignation changes the next game. It barely does. But when we split the time wins afterwards, the lucky ones seemed to play a bit worse. Because we only spotted that after looking, it could have been chance. Study 2 was built to test it properly.");
 
-// ================= Part 2 =================
-SEC = section("Part 2", "The questions", "Next, exactly what study 2 asked, and what was predicted before any of its data was looked at.");
+// ================= Part 2: literature =================
+SEC = section("Part 2", "What other researchers have found", "Before our questions, the studies this project builds on. For each one: what they wanted to know, what they did, and what they found, in plain words.");
+
+s = slide();
+title(s, "Seven studies gave us the question, the measuring tool and the choice of game speed");
+table(s, [
+  [th("Theme"), th("Studies"), th("What we took from them")],
+  ["Does one result change the next game?", "Gee et al. (2025)\nChowdhary et al. (2023)", "The question, and the gap: nobody split wins by type"],
+  ["How do you grade a human move?", "Guid & Bratko (2006)\nBackus et al. (2023)\nKuenn et al. (2020)\nRegan et al. (2014)", "The ACPL method, its settings, and its limits"],
+  ["Does time pressure change move quality?", "Sunde et al. (2022, 2026)", "Why we used slower (rapid) games"],
+], { y: 1.3, colW: [3.0, 2.8, 3.2], fontSize: 15 });
+s.addNotes("Seven studies matter most. Two ask the same kind of question as us: does the last game affect the next one? Four built and tested the tool we use to grade moves with a chess computer. One looks at how the clock affects decisions, which is why we used rapid games. The next slides take them one at a time.");
+
+function paper(t, rows, why, src, notes) {
+  const s = slide();
+  title(s, t);
+  const labels = ["What they asked", "What they did", "What they found"];
+  const ys = [1.22, 2.02, 3.32], hs = [0.72, 1.22, 1.0];
+  rows.forEach((r, i) => {
+    box(s, M, ys[i], 1.75, hs[i], HEX.band, HEX.blue, labels[i]);
+    text(s, labels[i], { x: M + 0.1, y: ys[i], w: 1.55, h: hs[i], fontSize: 15, bold: true, color: HEX.navy, valign: "middle" });
+    text(s, r, { x: 2.4, y: ys[i], w: 7.1, h: hs[i], fontSize: 15, valign: "middle" });
+  });
+  box(s, M, 4.42, W, 0.66, HEX.callout, HEX.amber, "why it matters");
+  text(s, [{ text: "Why it matters for us: ", options: { bold: true, color: HEX.amber } }, { text: why }],
+    { x: M + 0.15, y: 4.42, w: W - 0.3, h: 0.66, fontSize: 15, valign: "middle" });
+  cite(s, src);
+  s.addNotes(notes);
+}
+
+paper("Gee et al.: winning the last game barely changed the chance of winning the next",
+  ["Does winning (or losing) one game make you more likely to win (or lose) the next? Biologists call this a winner-loser effect.",
+   "Lichess bullet (1 minute) and blitz (3 minute) games of 36 players rated 1700 to 1900 and 23 grandmasters. Only games in the same sitting counted (started within 5 minutes). A statistical model predicted each result from recent results, colour and the rating gap.",
+   "Little evidence of an effect for players in general: the win chance moved by between -2 and +3 percentage points. Looking back 10 games instead of 1 added nothing."],
+  "they treated every win as the same, and noted that 24% of grandmaster bullet wins are on time and may matter differently.",
+  "Gee, Seese, Curley & Ward (2025), Journal of Quantitative Analysis in Sports 22(2); preprint arXiv:2503.21713",
+  "Gee and colleagues are statisticians and psychologists. The idea of a winner-loser effect comes from animal studies, where an animal that just won a fight is more likely to win the next one. They asked whether chess players show the same thing online. They took a few dozen players in each rating group, plus grandmasters, and looked at hundreds of thousands of their fast games. They only counted games played in one sitting, and their model allowed for playing White or Black and for how much stronger the opponent was. The answer: almost no effect for players in general, though a few individual players showed one. Most important for us, at the end of the paper they point out two things they did not do: they did not treat wins on time differently, even though a quarter of grandmaster bullet wins are on time, and they did not separate winning from losing effects. Our studies pick up exactly the first point. Note: the -2 to +3 points is their -0.02 to 0.03 change in win probability.");
+
+paper("Chowdhary et al.: wins and losses come in streaks longer than chance would give",
+  ["Do players have hot streaks (runs of wins) and cold streaks (runs of losses)? How do strong and weak players differ?",
+   "All Lichess blitz games from 2013 to 2016, from a set of 123 million games by 0.98 million players. For each player they shuffled the order of their own games, which shows what streaks pure chance would give, and compared the real streaks with that.",
+   "Real hot streaks were longer than chance, cold streaks were longer still, and weaker players had longer hot streaks than strong players."],
+  "results do cluster, but only win or loss was measured, not how well the moves were played.",
+  "Chowdhary, Iacopini & Battiston (2023), Scientific Reports 13, 2113",
+  "This team studies how success works in many fields, and used chess as a test case. The clever part is the shuffle test. If you shuffle the order of one player's games, you keep their total wins and losses but destroy any real pattern in time. So any streaks left after shuffling are what luck alone produces. Real careers had longer streaks than shuffled ones, so the streaks are real. They checked some explanations: streaks were only slightly linked to facing weaker opponents, and gaps between games hardly mattered. But their outcome is only win, loss or draw, and they did not look at what kind of win came before.");
+
+paper("Guid & Bratko: a chess program can grade every human move",
+  ["Can a computer fairly compare world champions from different eras by the quality of their moves?",
+   "They ran the chess program CRAFTY over World Championship match games. Each move was graded by how much worse the program rated it than its own best move, and each player got the average. The search went 12 plies deep (6 moves by each side).",
+   "Capablanca came out on top. Critics said CRAFTY was too weak and too shallow. In later work with stronger programs, clearly separated players kept the same order, but the scores themselves changed with the program and the depth."],
+  "this is where our measure, the average loss per move (ACPL), comes from.",
+  "Guid & Bratko (2006), ICGA Journal 29(2), 65-73; follow-ups in ICGA Journal 2008 and 2011",
+  "Guid and Bratko are computer scientists from Ljubljana. Their idea was simple: if a strong program can judge positions, it can say how much each human move gave away. Averaging that over a player's moves gives a quality score. Their first study surprised people by ranking Capablanca first, and drew criticism that the program was too weak. Their follow-ups showed the rough ranking held with stronger programs, but also that the numbers depend on which program you use and how deep it searches. That is why we fix one program and one depth for every game. We could not download the 2006 paper itself; these details come from the authors' own later summary.");
+
+paper("Backus et al.: women's mistakes grew about 11% against men; men's did not",
+  ["Does playing against a man or a woman change how well someone plays? This helps explain why women often do worse in mixed competition.",
+   "Over-the-board tournament games from 2012 and 2013 (The Week in Chess). Moves 15 to 30 of each game were graded by the program Houdini at depth 15. Each player's games against men were compared with their own games against women: 28,799 games by 2,504 players.",
+   "Women's average mistake was about 11% larger against men. Men played equally well against both, and kept playing longer before resigning against women. The average mistake per move overall was 16.5."],
+  "our move window (15 to 30), search depth (15) and loss formula all come from this paper.",
+  "Backus, Cubel, Guid, Sanchez-Pages & Lopez Manas (2023), Quantitative Economics 14(1), 349-380",
+  "This is an economics paper about gender and competition. Chess is useful because there is a fair, objective measure of how well each person played every game. They chose moves 15 to 30 for two reasons: to save computer time, and because those middle-game moves are less likely to be memorised preparation. They compared each player with themselves, which removes differences in skill between players. Their average mistake of 16.5 is much smaller than our 72, but the two cannot be compared: different program, different players, slower games. Only comparisons made with the same program and settings are fair.");
+
+paper("Kuenn et al.: top players made bigger mistakes online than over the board",
+  ["Does moving brain-heavy work from the office to home, online, hurt performance? COVID-19 lockdowns gave a natural test.",
+   "Eight of the world's top players. Their online games in the Magnus Carlsen Invitational (April to May 2020) were compared with their over-the-board World Rapid Championship games (2015 to 2019), both at 15 minutes plus 10 seconds a move. First 15 moves dropped; graded by Stockfish 11 at depth 25.",
+   "When players made a mistake, it was on average 16.8% larger online than over the board."],
+  "the same grading method works for rapid games, and their worked example is how we explain the loss formula.",
+  "Kuenn, Seel & Zegners (2020), IZA Discussion Paper 13491; published in The Economic Journal 132(643), 2022",
+  "These economists used chess to study working from home. When lockdown moved top tournaments online, they could compare the same eight elite players at the same time control, online and in person. The engine graded every move after the opening. Players made bigger errors online. Their appendix has the clear example we use to explain a loss: the score goes from -0.13 before a move to -1.09 after, so the move lost 0.96 of a pawn. Their sample is small and very elite, so it says little about club players, but it shows the method works on rapid games.");
+
+paper("Regan et al.: different chess programs score the same move differently",
+  ["How do the mistakes and choices of human players differ from those of computers?",
+   "726,120 positions from 208 top tournaments (2010 to 2012), each analysed by four different chess programs.",
+   "Humans err more the bigger either side's advantage, far more than computers do. A player's expected score is 2-3% lower when it is their turn to move. Stockfish's scores were about 1.5 times larger than other programs'."],
+  "a centipawn from one program is not a centipawn from another, so we only compare groups scored by one program at one setting.",
+  "Regan, Biswas & Zhou (2014), AAAI-14 Workshop on Advances in Preference Handling",
+  "Ken Regan is a computer scientist best known for detecting cheating in chess. This paper compares human and computer play using a very large set of positions, each run through four programs. Two findings matter for us. First, the size of a centipawn depends on the program: in 2014, Stockfish gave numbers about one and a half times bigger than the others. That is why our 72 centipawns cannot be compared with another study's numbers, and why every game in our study is scored with the same program and depth. Second, human mistakes grow when one side is far ahead, which is a reason not to judge a lucky win by the moves inside it, where the winner was losing badly. Their programs were 2014 versions, so the 1.5 figure is not known to hold for Stockfish 16.");
+
+paper("Sunde et al.: quicker moves were better, and clock time only helps once thinking time is counted",
+  ["Are slow decisions better, because of more thought, or worse, because slow means the problem was hard? The two ideas predict opposite results.",
+   "About 80,000 moves from 1,600 grandmaster-level over-the-board games (2014 to 2017, rated 2,500 or more, at least 2 hours each). For every move: time spent, time left, how hard the position was, and whether the best move was played (Stockfish 14). The 2026 version adds rapid and blitz: 215,000 moves.",
+   "Quicker moves were more often the best move. Time left on the clock looked harmful on its own, but helpful once time spent on the move was held fixed: the sign flips. The time link was stronger in rapid and blitz."],
+  "clock time and move quality are tangled, more so in fast chess, so we studied rapid games and left bullet and blitz out.",
+  "Sunde, Zegners & Strittmatter (2022), arXiv:2201.10808; published in PNAS 123(20), e2531472123 (2026)",
+  "This is a study of decision making that uses chess because every decision is timed and can be graded. The puzzle is that more thinking time should help, yet the hardest moves are also the slowest ones. They found that quick moves were usually better, because quick moves are often easy moves. The interesting part for us is the sign flip: if you ignore how long the player thought, having more time on the clock looks bad; once you account for it, more time helps. So the clock affects quality in a tangled way. Their players were grandmasters over the board, not club players online, so we use this as a reason for caution rather than a direct finding about Lichess.");
+
+s = slide();
+title(s, "No study we found measured how well the next game is played after different kinds of win");
+table(s, [
+  [th("Study"), th("Games"), th("What was measured"), th("Split wins by type?")],
+  ["Gee et al.", "Lichess bullet and blitz", "Result of the next game", "No (named as future work)"],
+  ["Chowdhary et al.", "Lichess blitz, 2013-2016", "Length of win and loss streaks", "No"],
+  ["Backus, Kuenn, Sunde", "Top over-the-board and online", "Move quality", "Not about the previous game"],
+  [{ text: "Our study 1", options: { bold: true } }, "Lichess rapid, 2026", "Move quality in the next game", "Time, checkmate, resignation"],
+  [{ text: "Our study 2", options: { bold: true, color: HEX.amber } }, "Lichess rapid, 2026", "Move quality in the next game", { text: "Lucky vs deserved time wins", options: { bold: true, color: HEX.amber } }],
+], { y: 1.3, colW: [2.0, 2.4, 2.4, 2.2], fontSize: 14 });
+cite(s, "Based on the studies read for this project; full checks in LITERATURE_REVIEW.md");
+s.addNotes("Putting it together. Gee and Chowdhary looked at results, not at how well the moves were played. Backus, Kuenn and Sunde measured move quality, but not in relation to how the previous game ended. So the cell 'how the last game was won, against how well the next game was played' was empty in the work we read. Study 1 filled it for the three ways of winning; study 2 asks the sharper question of lucky against deserved wins. This is a claim about the papers we read, not a full search of everything ever published.");
+
+// ================= Part 3 =================
+SEC = section("Part 3", "The questions", "Next, exactly what study 2 asked, and what was predicted before any of its data was looked at.");
 
 s = slide();
 title(s, "Two questions, each with a prediction fixed and dated before any data was scored");
@@ -206,7 +305,7 @@ cite(s, "PREREGISTRATION_STUDY2.md, committed 12 October 2026, 11:02 UTC");
 s.addNotes("Both predictions were written down, dated and saved publicly before a single game was scored. Why? If you look at the data first, with dozens of ways to slice it, something will look interesting by pure chance. Writing the prediction first means the result can be trusted.");
 
 // ================= Part 3 =================
-SEC = section("Part 3", "How it was measured", "Now the method: where the games came from, how lucky wins were found, how the comparison was made fair, and how the numbers were tested.");
+SEC = section("Part 4", "How it was measured", "Now the method: where the games came from, how lucky wins were found, how the comparison was made fair, and how the numbers were tested.");
 
 s = slide();
 title(s, "From 89.6 million games to about 24,000 comparable pairs");
@@ -327,7 +426,7 @@ table(s, [
 s.addNotes("Before scoring, we worked out how many games were needed. Games vary a lot, by about 50 centipawns, so to pin down a 2 centipawn difference we need a lot of them: about 10,700 per group. We planned 13,000 because some games end too early to score. We ended with about 12,000 usable per group.");
 
 // ================= Part 4 =================
-SEC = section("Part 4", "Results", "Now what happened.");
+SEC = section("Part 5", "Results", "Now what happened.");
 
 s = slide();
 title(s, "Lucky winners made 1.96 cp more mistakes per move in their next game (p = 0.003)");
@@ -383,7 +482,7 @@ cite(s, "Study 1: 1 to 5 Aug and 1 to 5 Sep 2026. Study 2: 6 to 30 Sep 2026. No 
 s.addNotes("Study 1's hint and study 2's planned test used completely different games and found almost the same number: 2.2 and 1.96. Study 2's interval is much narrower because it had nine times as many lucky wins. When an unplanned hint comes back in a planned test, that is how science is supposed to work.");
 
 // ================= Part 5 =================
-SEC = section("Part 5", "What it means", "Finally, what the result means and what it cannot tell us.");
+SEC = section("Part 6", "What it means", "Finally, what the result means and what it cannot tell us.");
 
 s = slide();
 title(s, "An undeserved win leaves a small after-effect, worth about 53 rating points");
@@ -417,10 +516,13 @@ const refs = [
   "Chowdhary, Iacopini & Battiston (2023). Scientific Reports, 13, 2113.",
   "Gee, Seese, Curley & Ward (2025). Journal of Quantitative Analysis in Sports, 22(2), 117-132. Preprint arXiv:2503.21713.",
   "Guid & Bratko (2006). Computer analysis of world chess champions. ICGA Journal, 29(2), 65-73.",
+  "Kuenn, Seel & Zegners (2020). Cognitive performance in the home office. IZA DP 13491; The Economic Journal, 132(643), 1218-1232 (2022).",
+  "Regan, Biswas & Zhou (2014). Human and computer preferences at chess. AAAI-14 Workshop on Advances in Preference Handling.",
+  "Sunde, Zegners & Strittmatter (2022). arXiv:2201.10808; published as Speed and quality of complex strategic decisions, PNAS, 123(20), e2531472123 (2026).",
   "Lichess open database (2026). database.lichess.org, CC0.",
   "Karana Gulati (2026). Study 1 and study 2 preregistrations and results. github.com/KaranaGulati/ContinuedLearningResearch.",
 ];
-text(s, refs.map((r, i) => ({ text: r, options: { breakLine: i < refs.length - 1 } })), { x: M, y: 1.3, w: W, h: 3.7, fontSize: 14, paraSpaceAfter: 10 });
+text(s, refs.map((r, i) => ({ text: r, options: { breakLine: i < refs.length - 1 } })), { x: M, y: 1.2, w: W, h: 3.9, fontSize: 12, paraSpaceAfter: 6 });
 s.addNotes("Backup slide, not presented.");
 
 s = slide();
