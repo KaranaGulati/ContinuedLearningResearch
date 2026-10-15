@@ -279,6 +279,25 @@ paper("Kuenn et al.: top players made bigger mistakes online than over the board
   "Kuenn, Seel & Zegners (2020), IZA Discussion Paper 13491; published in The Economic Journal 132(643), 2022",
   "These economists used chess to study working from home. When lockdown moved top tournaments online, they could compare the same eight elite players at the same time control, online and in person. The engine graded every move after the opening. Players made bigger errors online. Their appendix has the clear example we use to explain a loss: the score goes from -0.13 before a move to -1.09 after, so the move lost 0.96 of a pawn. Their sample is small and very elite, so it says little about club players, but it shows the method works on rapid games.");
 
+s = slide();
+title(s, "Why Kuenn et al. matters to us: four uses, and one detail worth knowing");
+[["1. The method works on rapid games", "Their games were 15 minutes plus 10 seconds a move, the same speed class as ours. Engine grading still makes sense when time is limited."],
+ ["2. A shared opening cutoff", "They dropped the first 15 moves \u201Cas in Backus et al.\u201D, because early moves are usually memorised. A second team using it helps us defend it."],
+ ["3. The clearest worked example", "Engine score -0.13 before the move, -1.09 after: the move lost 0.96 of a pawn. Our README explains the loss formula with this example."],
+ ["4. The setting changes move quality", "The same top players made bigger mistakes online. Our study rests on the same idea: things outside the position can change how well you play."],
+].forEach(([h, b], i) => {
+  const x = i % 2 ? 5.15 : M, y = i < 2 ? 1.22 : 2.6;
+  box(s, x, y, 4.35, 1.28, "FFFFFF", HEX.blue, h);
+  text(s, h, { x: x + 0.15, y: y + 0.06, w: 4.05, h: 0.32, fontSize: 15, bold: true, color: HEX.blue });
+  text(s, b, { x: x + 0.15, y: y + 0.4, w: 4.05, h: 0.84, fontSize: 13 });
+});
+box(s, M, 4.02, W, 1.02, HEX.callout, HEX.amber, "size not frequency");
+text(s, [{ text: "The detail: ", options: { bold: true, color: HEX.amber } },
+  { text: "playing online did not significantly change whether a player made an error (p = 0.138), but errors that were made were 16.8% bigger. ACPL mixes how often and how big, so a future question for us is: do lucky winners make more mistakes, or bigger ones?" }],
+  { x: M + 0.15, y: 4.02, w: W - 0.3, h: 1.02, fontSize: 14, valign: "middle" });
+cite(s, "Kuenn, Seel & Zegners (2020), IZA DP 13491, Appendix Fig. A.1; they used Stockfish 11, we used 16");
+s.addNotes("Kuenn and colleagues matter to us in four ways. First, their games were rapid, 15 minutes plus 10 seconds, so they show that grading moves with an engine still works when players are short of time. Second, they dropped each player's first 15 moves 'as in Backus et al.', because those are usually memorised preparation, so our window is a convention used by more than one team. Third, their appendix gives the clearest example of how one move's loss is worked out: minus 0.13 before, minus 1.09 after, a loss of 0.96 of a pawn. Fourth, their whole result is that the same players made bigger mistakes online than in person, which is the general idea behind our study: something outside the board can change how well people play. One detail is worth knowing. Playing online did not significantly change how often players made an error, p equals 0.138, but when they did make one it was 16.8 percent bigger. Our measure, ACPL, mixes how often and how big, so a natural follow-up is to ask whether lucky winners make more mistakes or bigger ones. Their sample is small and elite, eight top players, so it says little about club players directly.");
+
 paper("Regan et al.: different chess programs score the same move differently",
   ["How do the mistakes and choices of human players differ from those of computers?",
    "726,120 positions from 208 top tournaments (2010 to 2012), each analysed by four different chess programs.",
