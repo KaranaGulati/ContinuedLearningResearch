@@ -139,7 +139,7 @@ cite(s, "Study 2 screening: final positions of 70,000 time wins scored by Stockf
 s.addNotes("This is the key idea of the study. A win on time is recorded as a win, even if you were completely losing the actual game. We checked 70,000 time wins with a chess computer and found that in about one in five, the winner was the one losing on the board. Those are lucky wins.");
 
 s = slide();
-title(s, "A chess computer gives every position a score, measured in centipawns (100 cp = 1 pawn)");
+title(s, "A chess computer gives every position a score, measured in centipawns (cp)");
 const nlX = 1.0, nlW = 8.0, nlY = 2.55, NX = (v) => nlX + ((v + 500) / 1000) * nlW;
 s.addShape(pres.shapes.LINE, { x: nlX, y: nlY, w: nlW, h: 0, line: { color: HEX.navy, width: 2.5 }, objectName: "number line" });
 [-500, -300, -100, 0, 100, 300, 500].forEach((v) => {
@@ -149,9 +149,9 @@ s.addShape(pres.shapes.LINE, { x: nlX, y: nlY, w: nlW, h: 0, line: { color: HEX.
 text(s, "Black is winning", { x: nlX - 0.2, y: 1.75, w: 2.6, h: 0.4, fontSize: F.label, bold: true, color: HEX.navy });
 text(s, "Equal", { x: NX(0) - 0.6, y: 1.75, w: 1.2, h: 0.4, fontSize: F.label, bold: true, color: HEX.navy, align: "center" });
 text(s, "White is winning", { x: NX(500) - 2.4, y: 1.75, w: 2.6, h: 0.4, fontSize: F.label, bold: true, color: HEX.navy, align: "right" });
-bullets(s, ["A pawn is the smallest chess piece; 1 pawn = 100 cp", "+300 means White is about 3 pawns better", "We always read the score from the side of the player we study"],
+bullets(s, ["The name comes from pawns: traditionally 100 cp = 1 pawn", "In Stockfish 16, +100 cp is defined as about a 50% chance of winning against an equal opponent", "We always read the score from the side of the player we study"],
   { x: M, y: 3.25, w: W, h: 1.8 });
-s.addNotes("A chess computer, called an engine, can look at any position and give one number for who is better and by how much. The unit is the centipawn, a hundredth of a pawn. Zero means equal. Plus 300 means White is about three pawns ahead. This is the same line you see in the graph after a game on chess.com.");
+s.addNotes("A chess computer, called an engine, can look at any position and give one number for who is better and by how much. The unit is the centipawn, a hundredth of a pawn. Zero means equal. Plus 300 means White is about three pawns ahead. This is the same line you see in the graph after a game on chess.com. The name comes from pawns, but since version 15.1 Stockfish defines its scale by winning chances: plus 100 means the side ahead would win about half the time against an equally strong opponent.");
 
 s = slide();
 title(s, "A move's mistake is how much it lowers the player's own score");
@@ -314,6 +314,25 @@ text(s, [{ text: "So: ", options: { bold: true, color: HEX.amber } },
 cite(s, "Guid & Bratko (2011), ICGA Journal 34(2), via the authors' ChessBase summary; Regan et al. (2014)");
 s.addNotes("A centipawn is not a fixed unit like a centimetre. Each chess program has its own scale, and even the same program gives different numbers at different search depths. Guid and Bratko found this when they graded world champions with four programs: the average error scores changed with the program and with the depth. Regan and colleagues measured how big the difference can be: in 2014, Stockfish's numbers were about one and a half times bigger than other programs'. Think of two bathroom scales that disagree. You can compare two people weighed on the same scale, but not someone weighed on one scale with someone weighed on the other. That is why our average of 72 centipawns cannot be compared with the 16.5 in Backus et al. It is also why our own comparison is fair: every lucky and deserved winner was weighed on the same scale, Stockfish 16 at depth 15. The 1.5 figure was for 2014 versions, so we only rely on the general point, not the exact number.");
 
+s = slide();
+title(s, "Since Stockfish 15.1, a score means a chance of winning, not a number of pawns");
+box(s, M, 1.22, W, 1.05, HEX.band, HEX.blue, "release note");
+text(s, [{ text: "\u201CAn evaluation of +1 is now no longer tied to the value of one pawn, but to the likelihood of winning the game. With a +1 evaluation, Stockfish has now a 50% chance of winning the game against an equally strong opponent.\u201D", options: { italic: true, breakLine: true } },
+  { text: "Stockfish 15.1 release notes (2022); Stockfish 16 keeps the same rule", options: { fontSize: 12, color: HEX.gray, italic: false } }],
+  { x: M + 0.2, y: 1.22, w: W - 0.4, h: 1.05, fontSize: 14, color: HEX.navy, valign: "middle" });
+table(s, [
+  [th("Version"), th("What +100 cp means"), th("Used by")],
+  ["Stockfish 11 and 14", "Tied to the value of a pawn", "Kuenn (11), Sunde 2022 (14)"],
+  ["Stockfish 15.1 on", "About a 50% chance of winning; a bit smaller", "\u2014"],
+  [{ text: "Stockfish 16", options: { bold: true } }, "Same rule; up to 50 Elo stronger than 15", { text: "This study", options: { bold: true } }],
+], { y: 2.38, colW: [2.1, 4.3, 2.6], fontSize: 13, rowH: 0.3 });
+box(s, M, 3.85, W, 0.95, HEX.callout, HEX.amber, "for us");
+text(s, [{ text: "For us: ", options: { bold: true, color: HEX.amber } },
+  { text: "at our lucky line of -100 cp, an opponent of Stockfish strength would win about half the time from the final position. For club players it is a guide, not an exact chance. Older papers' numbers sit on a slightly different scale." }],
+  { x: M + 0.15, y: 3.85, w: W - 0.3, h: 0.95, fontSize: 14, valign: "middle" });
+cite(s, "stockfishchess.org/blog: Stockfish 15.1 (2022) and Stockfish 16 (2023) release notes");
+s.addNotes("One more thing about the scale. Until version 15, Stockfish's centipawn was tied to the value of a pawn. From version 15.1, the developers changed it: plus 100 now means Stockfish would win about half the time against an equally strong opponent. They say this made the numbers a bit smaller than before, and Stockfish 16, which we used, keeps the same rule and is up to 50 Elo stronger than Stockfish 15. Two things follow. First, our threshold for a lucky win, minus 100 centipawns, has a plain meaning: from that final position, an engine-strength opponent would win about half the time. For club players the real chance is different, so treat it as a guide. Second, papers using older versions, like Kuenn et al. with Stockfish 11 and Sunde et al. with Stockfish 14, report numbers on a slightly different scale, which is one more reason not to compare their numbers with ours. Honestly, we did not choose version 16 over 14 for this reason; it is the version the system installs, and it was fixed in the preregistration. But it turns out to be the better choice.");
+
 paper("Sunde et al.: quicker moves were better, and clock time only helps once thinking time is counted",
   ["Are slow decisions better, because of more thought, or worse, because slow means the problem was hard? The two ideas predict opposite results.",
    "About 80,000 moves from 1,600 grandmaster-level over-the-board games (2014 to 2017, rated 2,500 or more, at least 2 hours each). For every move: time spent, time left, how hard the position was, and whether the best move was played (Stockfish 14). The 2026 version adds rapid and blitz: 215,000 moves.",
@@ -321,6 +340,21 @@ paper("Sunde et al.: quicker moves were better, and clock time only helps once t
   "clock time and move quality are tangled, more so in fast chess, so we studied rapid games and left bullet and blitz out.",
   "Sunde, Zegners & Strittmatter (2022), arXiv:2201.10808; published in PNAS 123(20), e2531472123 (2026)",
   "This is a study of decision making that uses chess because every decision is timed and can be graded. The puzzle is that more thinking time should help, yet the hardest moves are also the slowest ones. They found that quick moves were usually better, because quick moves are often easy moves. The interesting part for us is the sign flip: if you ignore how long the player thought, having more time on the clock looks bad; once you account for it, more time helps. So the clock affects quality in a tangled way. Their players were grandmasters over the board, not club players online, so we use this as a reason for caution rather than a direct finding about Lichess.");
+
+s = slide();
+title(s, "A flaw I found in Sunde et al.: clock time is not the same as thinking time");
+box(s, M, 1.22, W, 1.0, HEX.callout, HEX.amber, "the flaw");
+text(s, [{ text: "The flaw: ", options: { bold: true, color: HEX.amber } },
+  { text: "players also think while the opponent's clock is running. Some reply instantly after working out the move on the opponent's time, or to unsettle them. The data only record time on the player's own clock, so a long-considered move can look like a quick one." }],
+  { x: M + 0.15, y: 1.22, w: W - 0.3, h: 1.0, fontSize: 15, valign: "middle" });
+text(s, "What the paper does handle", { x: M, y: 2.35, w: 4.4, h: 0.35, fontSize: 16, bold: true, color: HEX.blue });
+bullets(s, ["Drops the first 15 moves (memorised openings)", "Compares each player only with themselves in the same game", "Time as a tactic and surprise moves: no change to results", "Dropping replies to captures and checks: no change"],
+  { x: M, y: 2.75, w: 4.4, h: 2.3, fontSize: 13, paraSpaceAfter: 6 });
+text(s, "What it does not", { x: 5.15, y: 2.35, w: 4.35, h: 0.35, fontSize: 16, bold: true, color: HEX.blue });
+bullets(s, ["Never measures thinking on the opponent's time", "So \u201Cfaster moves were better\u201D may partly mean \u201Calready calculated\u201D, not \u201Ceasy\u201D", "Our study uses no thinking times, so our results are unaffected"],
+  { x: 5.15, y: 2.75, w: 4.35, h: 2.3, fontSize: 13, paraSpaceAfter: 6 });
+cite(s, "Sunde, Zegners & Strittmatter (2022), arXiv:2201.10808; PNAS (2026), robustness checks, SI Tables A10-A14");
+s.addNotes("This is a flaw I found while reading Sunde et al. They measure decision time as the time a move took on the player's own clock. But chess players also think while the opponent is thinking. A strong player may already have worked out the reply and then play it instantly, sometimes also to put pressure on the opponent. On the clock that looks like a fast decision, even though a lot of thinking went into it. The paper does handle part of this. It drops each player's first 15 moves, which are usually memorised openings. It compares each player only with themselves within the same game, so someone who plays fast in general does not distort the result. The published version checks time used as a strategic tool and surprise moves by the opponent, and drops positions right after a capture or a check, where instant replies are common; none of these change the result. But neither version measures thinking on the opponent's time; the word does not appear. So their main finding, that faster moves were better, has a second explanation: fast moves may often be moves that were already calculated, not easy ones. The paper itself calls its results associations, not cause and effect. For our study this does not matter, because we never use thinking time: we use Sunde et al. only as a reason to prefer rapid games.");
 
 s = slide();
 title(s, "No study we found measured how well the next game is played after different kinds of win");
@@ -568,6 +602,7 @@ const refs = [
   "Guid & Bratko (2011). Using heuristic-search based engines for estimating human skill at chess. ICGA Journal, 34(2), 71-81.",
   "Regan, Biswas & Zhou (2014). Human and computer preferences at chess. AAAI-14 Workshop on Advances in Preference Handling.",
   "Sunde, Zegners & Strittmatter (2022). arXiv:2201.10808; published as Speed and quality of complex strategic decisions, PNAS, 123(20), e2531472123 (2026).",
+  "Stockfish developers (2022, 2023). Stockfish 15.1 and Stockfish 16 release notes. stockfishchess.org/blog.",
   "Lichess open database (2026). database.lichess.org, CC0.",
   "Karana Gulati (2026). Study 1 and study 2 preregistrations and results. github.com/KaranaGulati/ContinuedLearningResearch.",
 ];
