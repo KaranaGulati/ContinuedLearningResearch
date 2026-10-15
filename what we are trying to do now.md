@@ -1,6 +1,6 @@
 # What we are trying to do now
 
-Handoff note, last updated 2026-10-13. Read this, then `PREREGISTRATION.md` (the current plan) and `README.md` (the original brief).
+Handoff note, last updated 2026-10-15. Read this, then `PREREGISTRATION.md` (the current plan) and `README.md` (the original brief).
 
 ## The study in two lines
 
@@ -11,6 +11,8 @@ Does the way a chess game is won (on time, by checkmate, by resignation) change 
 Karana chose a matched pairs design on 2026-10-07. The unit is a pair: a rapid win, then the same player's next rapid game, started within 30 minutes of the win ending with no other rated game in between. Three groups: pairs after a win on time, by checkmate, by resignation. A player can be in several groups but only once per group. The checkmate and resignation groups are drawn to match the win-on-time group's mix of Elo (100-point bins) and time control. The analysis is OLS on the next game's ACPL with Elo, rating gap, colour and time control, standard errors clustered by player, a Wald omnibus test and Holm-corrected pairwise differences. The README's within-player repeated-measures ANOVA is no longer the plan.
 
 ## Where things stand
+
+**2026-10-15: Karana has stopped work on studies 1 and 2 and is moving to a new study.** Everything below is the final state of the chess win-type project. Left undone by choice: the deck still uses "pawn" wording for centipawns and does not show the exploratory winning-chance result, and the planned deck slide explaining why Stockfish moved to winning-chance units (Stockfish FAQ; `NormalizeToPawnValue` in `src/uci.h`) was not made.
 
 Study 1 is finished (prediction "a win is a win" supported; `results/SUMMARY.md`, `the research explained.md`, deck in `slides/`).
 
