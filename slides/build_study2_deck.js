@@ -250,6 +250,27 @@ paper("Backus et al.: women's mistakes grew about 11% against men; men's did not
   "Backus, Cubel, Guid, Sanchez-Pages & Lopez Manas (2023), Quantitative Economics 14(1), 349-380",
   "This is an economics paper about gender and competition. Chess is useful because there is a fair, objective measure of how well each person played every game. They chose moves 15 to 30 for two reasons: to save computer time, and because those middle-game moves are less likely to be memorised preparation. They compared each player with themselves, which removes differences in skill between players. Their average mistake of 16.5 is much smaller than our 72, but the two cannot be compared: different program, different players, slower games. Only comparisons made with the same program and settings are fair.");
 
+s = slide();
+title(s, "Why only moves 15 to 30: Backus et al. gave two reasons, following Guid and Bratko");
+box(s, M, 1.22, W, 1.2, HEX.band, HEX.blue, "quote");
+text(s, [
+  { text: "\u201CWe consider this subset of moves for two reasons. First, to limit the substantial computational burden \u2026 Second, because we want to focus on the middle game, which is least likely to follow an established plan \u2026\u201D", options: { italic: true, breakLine: true } },
+  { text: "Backus et al. (2023), p. 359", options: { fontSize: 13, color: HEX.gray } },
+], { x: M + 0.2, y: 1.22, w: W - 0.4, h: 1.2, fontSize: 15, color: HEX.navy, valign: "middle" });
+function reason(x, head, body) {
+  box(s, x, 2.6, 4.35, 1.35, "FFFFFF", HEX.blue, head);
+  text(s, head, { x: x + 0.2, y: 2.68, w: 3.95, h: 0.35, fontSize: 16, bold: true, color: HEX.blue });
+  text(s, body, { x: x + 0.2, y: 3.05, w: 3.95, h: 0.85, fontSize: 14 });
+}
+reason(M, "1. Computer time", "Their sample had about 1.5 million moves, and each extra step of search depth roughly doubles the computing time.");
+reason(5.15, "2. Skip prepared play", "Strong players study openings and practise endgames in advance, so the middle game shows their own decisions best.");
+box(s, M, 4.12, W, 0.92, HEX.callout, HEX.amber, "our players");
+text(s, [{ text: "For our players: ", options: { bold: true, color: HEX.amber } },
+  { text: "club players rated 1200 to 2000 probably memorise less, so here the window mainly skips habitual opening moves and keeps the computing manageable. It was fixed in the preregistration before any game was scored." }],
+  { x: M + 0.15, y: 4.12, w: W - 0.3, h: 0.92, fontSize: 14, valign: "middle" });
+cite(s, "Backus et al. (2023), Quantitative Economics 14(1), 349-380; window from Guid & Bratko (2006, 2011)");
+s.addNotes("Why do we only score moves 15 to 30? We copied this from Backus and colleagues, who took it from Guid and Bratko. On page 359 they write: 'Following Guid and Bratko (2006, 2011), we base our quality of play variable on the analysis of moves n = 15, ..., 30, in each game g with total length N of at least 15 moves. We consider this subset of moves for two reasons. First, to limit the substantial computational burden of calculating so many moves (about 1.5 million in our full sample). Second, because we want to focus on the middle game, which is least likely to follow an established plan as experienced players, like those in our sample, tend to study the opening moves of their opponents and practice endgames in advance.' Their footnote 15 adds that each extra move of search depth roughly doubles the computing time. Their players were experienced tournament players. Ours are club players online, who probably memorise fewer openings, so for us the window mostly skips habitual opening moves and keeps the computing manageable. Either way, the same window is used for every game in every group, and it was fixed before any data was scored, so it cannot favour one group over another.");
+
 paper("Kuenn et al.: top players made bigger mistakes online than over the board",
   ["Does moving brain-heavy work from the office to home, online, hurt performance? COVID-19 lockdowns gave a natural test.",
    "Eight of the world's top players. Their online games in the Magnus Carlsen Invitational (April to May 2020) were compared with their over-the-board World Rapid Championship games (2015 to 2019), both at 15 minutes plus 10 seconds a move. First 15 moves dropped; graded by Stockfish 11 at depth 25.",
@@ -369,33 +390,12 @@ table(s, [
   [th("Setting"), th("Value"), th("Why")],
   ["Engine", "Stockfish 16", "Strong, free, standard in research"],
   ["Search depth", "15 moves ahead", "Same effort for every position, reproducible"],
-  ["Moves scored", "15 to 30", "Skips prepared openings, saves computer time (next slide)"],
+  ["Moves scored", "15 to 30", "Skips prepared openings, saves computer time (see Part 2)"],
   ["Score cap", "±1000 cp", "One missed mate cannot swamp a game"],
   ["Minimum", "5 scored moves", "Very short games are too noisy"],
 ], { y: 1.3, colW: [2.2, 2.6, 4.2], rowH: 0.48, fontSize: 15 });
 cite(s, "42,851 next games scored; two separate runs on the same games gave identical numbers in study 1");
 s.addNotes("Every game goes through the same machine with the same settings. A fixed depth means the computer thinks equally hard about every position, so anyone can rerun this and get the same numbers. We skip the first 14 moves because players often play memorised openings there.");
-
-s = slide();
-title(s, "Why only moves 15 to 30: Backus et al. gave two reasons, following Guid and Bratko");
-box(s, M, 1.22, W, 1.2, HEX.band, HEX.blue, "quote");
-text(s, [
-  { text: "\u201CWe consider this subset of moves for two reasons. First, to limit the substantial computational burden \u2026 Second, because we want to focus on the middle game, which is least likely to follow an established plan \u2026\u201D", options: { italic: true, breakLine: true } },
-  { text: "Backus et al. (2023), p. 359", options: { fontSize: 13, color: HEX.gray } },
-], { x: M + 0.2, y: 1.22, w: W - 0.4, h: 1.2, fontSize: 15, color: HEX.navy, valign: "middle" });
-function reason(x, head, body) {
-  box(s, x, 2.6, 4.35, 1.35, "FFFFFF", HEX.blue, head);
-  text(s, head, { x: x + 0.2, y: 2.68, w: 3.95, h: 0.35, fontSize: 16, bold: true, color: HEX.blue });
-  text(s, body, { x: x + 0.2, y: 3.05, w: 3.95, h: 0.85, fontSize: 14 });
-}
-reason(M, "1. Computer time", "Their sample had about 1.5 million moves, and each extra step of search depth roughly doubles the computing time.");
-reason(5.15, "2. Skip prepared play", "Strong players study openings and practise endgames in advance, so the middle game shows their own decisions best.");
-box(s, M, 4.12, W, 0.92, HEX.callout, HEX.amber, "our players");
-text(s, [{ text: "For our players: ", options: { bold: true, color: HEX.amber } },
-  { text: "club players rated 1200 to 2000 probably memorise less, so here the window mainly skips habitual opening moves and keeps the computing manageable. It was fixed in the preregistration before any game was scored." }],
-  { x: M + 0.15, y: 4.12, w: W - 0.3, h: 0.92, fontSize: 14, valign: "middle" });
-cite(s, "Backus et al. (2023), Quantitative Economics 14(1), 349-380; window from Guid & Bratko (2006, 2011)");
-s.addNotes("Why do we only score moves 15 to 30? We copied this from Backus and colleagues, who took it from Guid and Bratko. On page 359 they write: 'Following Guid and Bratko (2006, 2011), we base our quality of play variable on the analysis of moves n = 15, ..., 30, in each game g with total length N of at least 15 moves. We consider this subset of moves for two reasons. First, to limit the substantial computational burden of calculating so many moves (about 1.5 million in our full sample). Second, because we want to focus on the middle game, which is least likely to follow an established plan as experienced players, like those in our sample, tend to study the opening moves of their opponents and practice endgames in advance.' Their footnote 15 adds that each extra move of search depth roughly doubles the computing time. Their players were experienced tournament players. Ours are club players online, who probably memorise fewer openings, so for us the window mostly skips habitual opening moves and keeps the computing manageable. Either way, the same window is used for every game in every group, and it was fixed before any data was scored, so it cannot favour one group over another.");
 
 s = slide();
 title(s, "A regression compares the groups while holding rating, opponent and colour fixed");
