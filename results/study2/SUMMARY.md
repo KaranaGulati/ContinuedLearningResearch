@@ -36,6 +36,19 @@ Checks, none of which change the decision:
 
 Every check points the same way, between 1.8 and 2.3 cp.
 
+## Exploratory: lost winning chances instead of centipawns
+
+Added on 15 October 2026, after the results above, so it is not part of the preregistered test. A centipawn drop does not always cost the same: Lichess's own accuracy page points out that losing 300 cp in a level position is a major blunder, while losing 300 cp in a game that is already won or lost hardly matters. So each stored Stockfish 16 evaluation was converted to a winning chance with the formula Lichess uses, Win% = 50 + 50 * (2 / (1 + exp(-0.00368208 * cp)) - 1), with evaluations capped at plus or minus 1000 cp as Lichess does. A move's loss is how far it lowered the mover's winning chance. Same games, same models, nothing re-run on the engine. Code: `src/explore_winprob.py`; tables: `results/study2/exploratory_winprob.md`.
+
+| measure | lucky minus deserved | 95% CI | p | size in SDs |
+|---|---|---|---|---|
+| centipawns (preregistered) | 1.96 cp | 0.66 to 3.27 | 0.003 | 0.038 |
+| winning chance lost per move | 0.06 points | -0.02 to 0.14 | 0.16 | 0.018 |
+
+Measured this way, lucky winners still did slightly worse, but the gap is about half as large relative to the spread of scores and could be chance. RQ1 does not change: no difference between time, checkmate and resignation wins on either measure (omnibus p = 0.65 for winning chances).
+
+The preregistered result stands as reported, because ACPL was the measure fixed in advance. But the lucky-win effect depends on how the mistakes are counted. Winning-chance loss shrinks very large blunders (from a level position, a 300 cp blunder costs about 25 points and a 600 cp blunder about 40, not twice as much), so one reading is that lucky winners' extra loss sits mostly in how big their biggest mistakes were. That is a guess to test, not a finding.
+
 ## RQ1: does the way you win matter?
 
 Prediction (Karana's): no. Time, checkmate and resignation wins lead to the same next-game accuracy, within plus or minus 3 cp.

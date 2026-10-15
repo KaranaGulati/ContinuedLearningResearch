@@ -18,6 +18,8 @@ Study 2 is finished (results in `results/study2/SUMMARY.md`): lucky time winners
 
 The literature was checked on 2026-10-13 (`LITERATURE_REVIEW.md`): every citation was read in the original and checked against the README, `the research explained.md` and the decks. Corrections were made in `the research explained.md` and both decks; the README brief is left as written apart from a broken link. `slides/study2-final.pptx` now has a Part 2 literature section (one slide per paper: what they asked, did and found; 40 slides in all). Still unread: Guid and Bratko (2006) itself and the Economic Journal version of Kuenn et al. Note that Lichess "Elo" tags hold Glicko-2 ratings.
 
+Exploratory check added 2026-10-15 (`src/explore_winprob.py`, section in `results/study2/SUMMARY.md`): scoring moves by lost winning chance (Lichess Win% formula) instead of centipawns, the lucky gap shrinks to 0.06 points (p = 0.16). The deck has not been updated with this yet.
+
 Progress files are committed to `results/study2-progress/` at each step so a new session can resume:
 - `screen.jsonl`: final-position scores of time wins (lucky = winner below -100 cp).
 - `sample.parquet`: the five groups.
