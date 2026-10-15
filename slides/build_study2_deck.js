@@ -298,13 +298,21 @@ text(s, [{ text: "The detail: ", options: { bold: true, color: HEX.amber } },
 cite(s, "Kuenn, Seel & Zegners (2020), IZA DP 13491, Appendix Fig. A.1; they used Stockfish 11, we used 16");
 s.addNotes("Kuenn and colleagues matter to us in four ways. First, their games were rapid, 15 minutes plus 10 seconds, so they show that grading moves with an engine still works when players are short of time. Second, they dropped each player's first 15 moves 'as in Backus et al.', because those are usually memorised preparation, so our window is a convention used by more than one team. Third, their appendix gives the clearest example of how one move's loss is worked out: minus 0.13 before, minus 1.09 after, a loss of 0.96 of a pawn. Fourth, their whole result is that the same players made bigger mistakes online than in person, which is the general idea behind our study: something outside the board can change how well people play. One detail is worth knowing. Playing online did not significantly change how often players made an error, p equals 0.138, but when they did make one it was 16.8 percent bigger. Our measure, ACPL, mixes how often and how big, so a natural follow-up is to ask whether lucky winners make more mistakes or bigger ones. Their sample is small and elite, eight top players, so it says little about club players directly.");
 
-paper("Regan et al.: different chess programs score the same move differently",
-  ["How do the mistakes and choices of human players differ from those of computers?",
-   "726,120 positions from 208 top tournaments (2010 to 2012), each analysed by four different chess programs.",
-   "Humans err more the bigger either side's advantage, far more than computers do. A player's expected score is 2-3% lower when it is their turn to move. Stockfish's scores were about 1.5 times larger than other programs'."],
-  "a centipawn from one program is not a centipawn from another, so we only compare groups scored by one program at one setting.",
-  "Regan, Biswas & Zhou (2014), AAAI-14 Workshop on Advances in Preference Handling",
-  "Ken Regan is a computer scientist best known for detecting cheating in chess. This paper compares human and computer play using a very large set of positions, each run through four programs. Two findings matter for us. First, the size of a centipawn depends on the program: in 2014, Stockfish gave numbers about one and a half times bigger than the others. That is why our 72 centipawns cannot be compared with another study's numbers, and why every game in our study is scored with the same program and depth. Second, human mistakes grow when one side is far ahead, which is a reason not to judge a lucky win by the moves inside it, where the winner was losing badly. Their programs were 2014 versions, so the 1.5 figure is not known to hold for Stockfish 16.");
+s = slide();
+title(s, "Scores depend on the program, so other papers' numbers can't be compared with ours");
+function quote(y, q, who) {
+  box(s, M, y, W, 1.0, HEX.band, HEX.blue, who);
+  text(s, [{ text: q, options: { italic: true, breakLine: true } }, { text: who, options: { fontSize: 13, color: HEX.gray, italic: false } }],
+    { x: M + 0.2, y, w: W - 0.4, h: 1.0, fontSize: 16, color: HEX.navy, valign: "middle" });
+}
+quote(1.3, "\u201C\u2026 the scores are not invariable for the same program at different depths of search, the scores also differ significantly when using different programs.\u201D", "Guid & Bratko, on their 2011 study of average move errors with four programs");
+quote(2.45, "\u201C\u2026 versions of Stockfish give values about 1.5 times higher magnitude than most programs \u2026\u201D", "Regan, Biswas & Zhou (2014), comparing four programs on 726,120 positions");
+box(s, M, 3.65, W, 1.35, HEX.callout, HEX.amber, "so what");
+text(s, [{ text: "So: ", options: { bold: true, color: HEX.amber } },
+  { text: "our 72 cp per move cannot be set against Backus et al.'s 16.5, which used a different program on different players. What we can compare is lucky against deserved winners, because every game was scored by the same program (Stockfish 16) at the same depth." }],
+  { x: M + 0.15, y: 3.65, w: W - 0.3, h: 1.35, fontSize: 16, valign: "middle" });
+cite(s, "Guid & Bratko (2011), ICGA Journal 34(2), via the authors' ChessBase summary; Regan et al. (2014)");
+s.addNotes("A centipawn is not a fixed unit like a centimetre. Each chess program has its own scale, and even the same program gives different numbers at different search depths. Guid and Bratko found this when they graded world champions with four programs: the average error scores changed with the program and with the depth. Regan and colleagues measured how big the difference can be: in 2014, Stockfish's numbers were about one and a half times bigger than other programs'. Think of two bathroom scales that disagree. You can compare two people weighed on the same scale, but not someone weighed on one scale with someone weighed on the other. That is why our average of 72 centipawns cannot be compared with the 16.5 in Backus et al. It is also why our own comparison is fair: every lucky and deserved winner was weighed on the same scale, Stockfish 16 at depth 15. The 1.5 figure was for 2014 versions, so we only rely on the general point, not the exact number.");
 
 paper("Sunde et al.: quicker moves were better, and clock time only helps once thinking time is counted",
   ["Are slow decisions better, because of more thought, or worse, because slow means the problem was hard? The two ideas predict opposite results.",
@@ -557,6 +565,7 @@ const refs = [
   "Gee, Seese, Curley & Ward (2025). Journal of Quantitative Analysis in Sports, 22(2), 117-132. Preprint arXiv:2503.21713.",
   "Guid & Bratko (2006). Computer analysis of world chess champions. ICGA Journal, 29(2), 65-73.",
   "Kuenn, Seel & Zegners (2020). Cognitive performance in the home office. IZA DP 13491; The Economic Journal, 132(643), 1218-1232 (2022).",
+  "Guid & Bratko (2011). Using heuristic-search based engines for estimating human skill at chess. ICGA Journal, 34(2), 71-81.",
   "Regan, Biswas & Zhou (2014). Human and computer preferences at chess. AAAI-14 Workshop on Advances in Preference Handling.",
   "Sunde, Zegners & Strittmatter (2022). arXiv:2201.10808; published as Speed and quality of complex strategic decisions, PNAS, 123(20), e2531472123 (2026).",
   "Lichess open database (2026). database.lichess.org, CC0.",
